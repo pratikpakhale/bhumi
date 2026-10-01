@@ -1,0 +1,13 @@
+{
+  "name": "bhumi",
+  "private": true,
+  "version": "0.1.0",
+  "description": "A faster, cleaner client for Maharashtra's Mahabhulekh (7/12, 8A, Property Card, KJP) land records",
+  "packageManager": "pnpm@10.12.1",
+  "scripts": {
+    "dev": "pnpm --filter @bhumi/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test"
+  }
+}
