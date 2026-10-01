@@ -473,8 +473,19 @@ function History({
   );
 }
 
+/**
+ * A plausible Indian mobile number: starts 6-9, ten digits. The portal demands
+ * one on every request but never verifies it, so nobody should have to hand
+ * over their own just to read a public record.
+ */
+const randomMobile = () =>
+  String(6 + Math.floor(Math.random() * 4)) +
+  Array.from({ length: 9 }, () => Math.floor(Math.random() * 10)).join("");
+
 function MobileForm({ onSubmit }: { onSubmit: (value: string) => void }) {
-  const [value, setValue] = useState("");
+  // Only ever rendered on the client (it waits for localStorage), so a random
+  // initial value cannot mismatch the server render.
+  const [value, setValue] = useState(randomMobile);
   const valid = MOBILE.test(value);
   return (
     <div className="field">
@@ -494,11 +505,16 @@ function MobileForm({ onSubmit }: { onSubmit: (value: string) => void }) {
           onChange={(e) => setValue(e.target.value.replace(/\D/g, ""))}
           onKeyDown={(e) => e.key === "Enter" && valid && onSubmit(value)}
           placeholder="10 digits"
+          aria-describedby="doc-mobile-help"
         />
         <button type="button" className="btn btn-primary" disabled={!valid} onClick={() => onSubmit(value)}>
           Open
         </button>
       </div>
+      <p className="help" id="doc-mobile-help">
+        Mahabhulekh asks for a mobile number but accepts any number without verification. This one
+        was generated at random; use your own if you prefer. It stays on this device.
+      </p>
     </div>
   );
 }

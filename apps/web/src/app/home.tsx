@@ -341,6 +341,10 @@ export function Home({ initial }: { initial: TreeSnapshot }) {
         <h1 className="wordmark">Bhumi</h1>
         <span className="source">Mahabhulekh</span>
       </header>
+      <p className="lede">
+        Maharashtra 7/12, 8A and Property Card extracts from Mahabhulekh, by survey number or
+        owner name. <span lang="mr">सातबारा उतारा · ८अ · मिळकत पत्रिका</span>
+      </p>
 
       <Suspense fallback={null}>
         <SharedCollection />

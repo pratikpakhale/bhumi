@@ -164,6 +164,17 @@ code {
   border-bottom: 1px solid var(--line);
 }
 
+.lede {
+  margin: var(--s3) 0 0;
+  font-size: var(--t-sm);
+  line-height: 1.5;
+  color: var(--text-3);
+  text-wrap: pretty;
+}
+.lede span {
+  white-space: nowrap;
+}
+
 .wordmark {
   font-size: var(--t-xl);
   font-weight: 620;

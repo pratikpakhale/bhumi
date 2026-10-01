@@ -1,6 +1,21 @@
 import { loadSearchParams } from "@/lib/search-params";
 import { peekTree } from "@/lib/tree";
+import { SITE } from "@/lib/site";
 import { Home } from "./home";
+
+/** What the site is, for search engines: a free web app over public records. */
+const STRUCTURED = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: SITE.name,
+  url: SITE.url,
+  description: SITE.description,
+  applicationCategory: "ReferenceApplication",
+  operatingSystem: "Any",
+  inLanguage: ["en-IN", "mr-IN"],
+  areaServed: { "@type": "State", name: "Maharashtra" },
+  offers: { "@type": "Offer", price: "0", priceCurrency: "INR" },
+};
 
 /**
  * The page is server-rendered from the URL.
@@ -19,5 +34,13 @@ export default async function Page({
   const { type, district, taluka, village } = await loadSearchParams(searchParams);
   const initial = await peekTree(type, district, taluka, village);
 
-  return <Home initial={initial} />;
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED) }}
+      />
+      <Home initial={initial} />
+    </>
+  );
 }

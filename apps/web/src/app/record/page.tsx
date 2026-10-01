@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import { loadSearchParams } from "@/lib/search-params";
 import { peekTree } from "@/lib/tree";
 import { DocumentScreen } from "./document";
+
+/** A record view is one person's lookup: useful to share, not to index. */
+export const metadata: Metadata = {
+  title: "Record",
+  robots: { index: false, follow: true },
+};
 
 /**
  * The document view: a saved land opens *here*, on the record itself, not on a
