@@ -11,6 +11,9 @@ import { SaveControl } from "./SaveControl";
 /**
  * A plot picked on the map, and what the land records say about it.
  *
+ * Records open in a new tab: the map is the place being explored, and coming
+ * back to it should not mean finding the field again.
+ *
  * Bhunaksha draws a survey number once and the 7/12s are kept per
  * sub-division, so the plot opens onto its sub-divisions, each a link to its
  * 7/12, and under each the khatas holding it, each a link to its 8A. Everything
@@ -59,7 +62,7 @@ export function PlotCard({
               <div className="plot-survey-head">
                 <span className="plot-survey-number">{survey}</span>
                 <span className="plot-survey-actions">
-                  <Link className="btn btn-ghost" href={recordHref(parcelLookup(place, survey))}>
+                  <Link className="btn btn-ghost" href={recordHref(parcelLookup(place, survey))} target="_blank">
                     7/12
                   </Link>
                   <SaveControl
@@ -80,7 +83,7 @@ export function PlotCard({
       ) : (
         <p className="help">
           Bhunaksha lists no holders for this plot.{" "}
-          <Link href={searchHref(parcelLookup(place, plot.number))}>Search 7/12 for {plot.number}</Link>
+          <Link href={searchHref(parcelLookup(place, plot.number))} target="_blank">Search 7/12 for {plot.number}</Link>
         </p>
       )}
 
@@ -106,7 +109,7 @@ function Holding({ place, holding: h }: { place: Place; holding: PlotHolding }) 
   );
   // A khata is an 8A: the holder's whole account in the village.
   return h.khata ? (
-    <Link className="results-row" href={recordHref(holderLookup(place, h.khata))}>
+    <Link className="results-row" href={recordHref(holderLookup(place, h.khata))} target="_blank">
       {text}
     </Link>
   ) : (
