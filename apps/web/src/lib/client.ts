@@ -9,6 +9,7 @@
  */
 
 import type { Option, RecordType, RecordDocument, SearchMode } from "@bhumi/core";
+import type { ParcelMap } from "./parcel-map";
 
 export interface VillageContext {
   searchTypes: Option[];
@@ -153,6 +154,12 @@ export const api = {
     postJSON<{ document: RecordDocument }>("/api/record", { ...loc, mode, ...input }).then(
       (r) => r.document,
     ),
+
+  /** Where a 7/12 survey number lies on Bhunaksha's village map. */
+  parcelMap: (district: string, taluka: string, village: string, survey: string) =>
+    cached(`m|${district}|${taluka}|${village}|${survey}`, () =>
+      getJSON<ParcelMap>(`/api/map?${qs({ district, taluka, village, survey })}`),
+    ),
 };
 
-export type { Option, RecordType, RecordDocument, SearchMode };
+export type { Option, RecordType, RecordDocument, SearchMode, ParcelMap };

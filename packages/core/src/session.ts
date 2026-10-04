@@ -11,6 +11,7 @@
 
 import { readField } from "./html.js";
 import { MahabhulekhError } from "./types.js";
+import { portalFetch } from "./tls.js";
 
 const DEFAULT_BASE_URL = "https://bhulekh.mahabhumi.gov.in/";
 const USER_AGENT =
@@ -19,7 +20,7 @@ const USER_AGENT =
 
 export interface SessionOptions {
   baseUrl?: string;
-  /** Injected for testing; defaults to global `fetch`. */
+  /** Injected for testing; defaults to {@link portalFetch}. */
   fetchImpl?: typeof fetch;
   /**
    * Per-request ceiling, in ms. The portal normally answers in 1-5s but can
@@ -49,7 +50,7 @@ export class Session {
 
   constructor(opts: SessionOptions = {}) {
     this.baseUrl = opts.baseUrl ?? DEFAULT_BASE_URL;
-    this.fetchImpl = opts.fetchImpl ?? fetch;
+    this.fetchImpl = opts.fetchImpl ?? portalFetch;
     this.timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   }
 

@@ -1213,3 +1213,54 @@ a.source:hover {
   text-align: center;
   max-width: 28rem;
 }
+
+/* ── Map ───────────────────────────────────────────────────────────────────
+ *
+ * A picture of the ground, so like the record frame it is not themed. */
+
+.map-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s3);
+  margin: 0 0 var(--s3);
+  font-size: var(--t-base);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.map-number {
+  font-weight: 560;
+  color: var(--text);
+}
+
+.map-frame {
+  margin-block: var(--s3);
+  border: 1px solid var(--line-control);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.map-canvas {
+  display: block;
+  width: 100%;
+  height: min(64vh, 480px);
+}
+
+.map-canvas.skeleton {
+  border-radius: var(--r-lg);
+}
+
+/* Inside the frame, the frame is the boundary. */
+.map-frame .map-canvas.skeleton {
+  border: 0;
+  border-radius: 0;
+}
+
+@media (max-width: 559px) {
+  .map-frame {
+    margin-inline: calc(var(--s5) * -1);
+    border-radius: 0;
+    border-inline: 0;
+  }
+}

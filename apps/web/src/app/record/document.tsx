@@ -40,6 +40,7 @@ import {
 } from "@/components/RecordView";
 import { SaveControl } from "@/components/SaveControl";
 import { HeldBy, Holdings } from "@/components/Relations";
+import { ParcelMap } from "@/components/ParcelMap";
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong");
 
@@ -352,6 +353,13 @@ export function DocumentScreen({ initial }: { initial: TreeSnapshot }) {
         <p className="alert" role="alert">
           {error}
         </p>
+      )}
+
+      {/* 7/12s only: the map is addressed by the rural village code, and
+          Bhunaksha's urban (Property Card) maps are not wired up. Held back
+          while the record loads, so the loader is the only thing on screen. */}
+      {place && lookup?.type === "7/12" && subject?.kind === "parcel" && (view || failure) && (
+        <ParcelMap place={place} survey={subject.code} />
       )}
 
       {place && holdings.length > 0 && (

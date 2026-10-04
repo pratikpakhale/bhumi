@@ -10,6 +10,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
     }
   },
   "files": [
@@ -29,5 +33,11 @@
     "@types/node": "^22.20.1",
     "typescript": "^5.9.3",
     "vitest": "^5.0.0"
+  },
+  "dependencies": {
+    "@types/geojson": "^7946.0.16",
+    "betterknown": "^1.2.0",
+    "proj4": "^2.22.0",
+    "undici": "^8.11.2"
   }
 }

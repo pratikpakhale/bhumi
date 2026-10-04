@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseParcelLabel } from "./client.js";
+import { parseParcelLabel } from "./parcel.js";
 
 describe("parseParcelLabel", () => {
   it("splits a 7/12 name-search row into name, survey and khata", () => {

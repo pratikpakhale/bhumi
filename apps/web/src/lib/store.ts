@@ -20,7 +20,8 @@
 
 import { randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
-import { MahabhulekhClient, type Option, type RecordType, type SearchMode } from "@bhumi/core";
+import type { Option, RecordType, SearchMode } from "@bhumi/core";
+import { MahabhulekhClient } from "@bhumi/core/server";
 
 export const SESSION_COOKIE = "bhumi_sid";
 const TTL_MS = 20 * 60 * 1000;

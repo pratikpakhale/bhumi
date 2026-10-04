@@ -13,7 +13,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { unstable_cache } from "next/cache";
 import { join } from "node:path";
-import { MahabhulekhClient, type Option, type RecordType } from "@bhumi/core";
+import type { Option, RecordType } from "@bhumi/core";
+import { MahabhulekhClient } from "@bhumi/core/server";
 import type { VillageContext } from "@bhumi/core";
 
 interface TreeCache {

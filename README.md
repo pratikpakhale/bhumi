@@ -20,6 +20,11 @@ that flow in a typed library and a fast single-page UI, so a lookup is:
 | Property Card | मिळकत पत्रिका | CTS / न.भू. number | JPEG image |
 | Kami-Jasti-Patrak | कमी जास्त पत्रक | measurement (mojani) number | HTML / image |
 
+A 7/12 also shows where its parcel lies: the plot outline from the state's
+cadastral map, **Mahabhunakasha** ([mahabhunakasha.mahabhumi.gov.in](https://mahabhunakasha.mahabhumi.gov.in/27/index.html)),
+over satellite imagery, with its mapped area and directions. That works only for
+villages whose map Bhunaksha has georeferenced.
+
 7/12 and 8A are verified end-to-end against the live portal. Property Card uses
 the same image path as 7/12; KJP's cascade is verified but its final fetch needs
 a real measurement number to confirm the exact result container.
@@ -28,10 +33,15 @@ a real measurement number to confirm the exact result container.
 
 ```
 packages/core   @bhumi/core — framework-free TypeScript client
+  index.ts        browser-safe entry: types, errors, pure parsers
+  server.ts       @bhumi/core/server — the network clients (Node only)
+  tls.ts          portal HTTPS that rides out a lapsed government certificate
   session.ts      cookies + __VIEWSTATE postback plumbing
   viewstate.ts    reads the captcha answer out of the ViewState
   client.ts       the stateful cascade + record fetch
   html.ts         WebForms-specific scraping helpers
+  bhunaksha.ts    the cadastral map: village extents, plot outlines, WMS tiles
+  map.ts          map types and survey-number matching, shared with the browser
 apps/web        Next.js app
   api/*           route handlers over a per-browser session store
   app/page.tsx    the search UI
