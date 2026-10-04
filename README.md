@@ -25,6 +25,11 @@ cadastral map, **Mahabhunakasha** ([mahabhunakasha.mahabhumi.gov.in](https://mah
 over satellite imagery, with its mapped area and directions. That works only for
 villages whose map Bhunaksha has georeferenced.
 
+`/map` turns that around: pick a taluka and every mapped village in it is laid
+over the imagery. Tapping a field names its survey number and the khatas holding
+each sub-division, with links to their 7/12s and 8As, and taps across a village
+line find the neighbouring village's field.
+
 7/12 and 8A are verified end-to-end against the live portal. Property Card uses
 the same image path as 7/12; KJP's cascade is verified but its final fetch needs
 a real measurement number to confirm the exact result container.
@@ -45,6 +50,7 @@ packages/core   @bhumi/core — framework-free TypeScript client
 apps/web        Next.js app
   api/*           route handlers over a per-browser session store
   app/page.tsx    the search UI
+  app/map/*       the map explorer
 ```
 
 The web app keeps one live `MahabhulekhClient` per browser (keyed by an httpOnly

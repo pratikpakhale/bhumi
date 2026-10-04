@@ -7,6 +7,7 @@ import { useQueryStates } from "nuqs";
 import { normalizeDigits, type Option, type RecordType, type SearchMode } from "@bhumi/core";
 import { api, type Locator } from "@/lib/client";
 import { isComplete, lookupFrom, recordHref, searchParams } from "@/lib/search-params";
+import { mapHref } from "@/lib/map-params";
 import { useResource, dataOf, firstError, type Resource } from "@/lib/resource";
 import type { Place } from "@/lib/collection";
 import type { TreeSnapshot } from "@/lib/tree";
@@ -339,7 +340,16 @@ export function Home({ initial }: { initial: TreeSnapshot }) {
     <div className="shell">
       <header className="masthead">
         <h1 className="wordmark">Bhumi</h1>
-        <span className="source">Mahabhulekh</span>
+        <div className="masthead-end">
+          <span className="source">Mahabhulekh</span>
+          {/* The map shares the 7/12 cascade, so a village chosen there carries over. */}
+          <Link
+            className="btn btn-ghost"
+            href={sameCascade(recordType, "7/12") && district && taluka ? mapHref({ district, taluka, village }) : "/map"}
+          >
+            Map
+          </Link>
+        </div>
       </header>
       <p className="lede">
         Maharashtra 7/12, 8A and Property Card extracts from Mahabhulekh, by survey number or

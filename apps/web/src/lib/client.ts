@@ -9,7 +9,7 @@
  */
 
 import type { Option, RecordType, RecordDocument, SearchMode } from "@bhumi/core";
-import type { ParcelMap } from "./parcel-map";
+import type { ParcelMap, PlotPick, TalukaMap, VillagePlots } from "./parcel-map";
 
 export interface VillageContext {
   searchTypes: Option[];
@@ -160,6 +160,34 @@ export const api = {
     cached(`m|${district}|${taluka}|${village}|${survey}`, () =>
       getJSON<ParcelMap>(`/api/map?${qs({ district, taluka, village, survey })}`),
     ),
+
+  /** Every mapped village in a taluka, with its extent. */
+  talukaMap: (district: string, taluka: string) =>
+    cached(`mt|${district}|${taluka}`, () =>
+      getJSON<TalukaMap>(`/api/map/taluka?${qs({ district, taluka })}`),
+    ),
+
+  /** A village's map and the plot numbers drawn on it. */
+  villagePlots: (district: string, taluka: string, village: string) =>
+    cached(`mv|${district}|${taluka}|${village}`, () =>
+      getJSON<VillagePlots>(`/api/map/village?${qs({ district, taluka, village })}`),
+    ),
+
+  /**
+   * The plot under a point, looked for in `village` first. What it finds is
+   * also the answer {@link parcelMap} would give for that plot, so it is kept
+   * under that key: opening the plot it found costs nothing more.
+   */
+  plotAt: async (district: string, taluka: string, village: string | null, [lng, lat]: [number, number]) => {
+    const pick = await getJSON<PlotPick>(
+      `/api/map/at?${qs({ district, taluka, ...(village && { village }), lng: lng.toFixed(7), lat: lat.toFixed(7) })}`,
+    );
+    if (pick.code && pick.plot) {
+      const key = `m|${district}|${taluka}|${pick.code}|${pick.plot.number}`;
+      if (!memo.has(key)) memo.set(key, Promise.resolve({ village: pick.village, plot: pick.plot }));
+    }
+    return pick;
+  },
 };
 
-export type { Option, RecordType, RecordDocument, SearchMode, ParcelMap };
+export type { Option, RecordType, RecordDocument, SearchMode, ParcelMap, PlotPick, TalukaMap, VillagePlots };

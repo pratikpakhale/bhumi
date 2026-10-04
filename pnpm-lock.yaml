@@ -25,6 +25,9 @@ importers:
       nuqs:
         specifier: ^2.10.1
         version: 2.10.1(next@15.5.27(react-dom@19.1.1(react@19.1.1))(react@19.1.1))(react@19.1.1)
+      p-limit:
+        specifier: ^7.3.3
+        version: 7.3.3
       react:
         specifier: 19.1.1
         version: 19.1.1
@@ -647,6 +650,10 @@ packages:
     resolution: {integrity: sha512-4a+OsYv9UktOJKE+l1A4OufDgdRF9PifWj+tJnHURo/P+WOxpG4GzUFL9qCalmWauao6ogiG+QvnCovwPoyAWA==}
     engines: {node: '>=12.20.0'}
 
+  p-limit@7.3.3:
+    resolution: {integrity: sha512-SKgVvDU5TNIxQ4r30U75BNLC6a+6GOEjngrk/ysM5+Zu3oJuk1SC5ApzIzY/7PjCEjoVPMWJ0zho/4QUiEB7TQ==}
+    engines: {node: '>=20'}
+
   pbf@5.1.2:
     resolution: {integrity: sha512-mnvGdvOrIvJOBGUEdGkrVXjN8E/VkIJCkf2eS1DH2yv82ORUlLttmDt0rWY38yYZmVwciZwBUvHM20qxBZf40w==}
     hasBin: true
@@ -863,6 +870,10 @@ packages:
 
   wkt-parser@1.5.6:
     resolution: {integrity: sha512-cqHU3lzGt/gt2OqIORP0uVy5yeOX43WABmgFkmJsmcqH3HhQo9PiJG6ftytwGKmpQUbegeX7+pQc2BuNCRfcrw==}
+
+  yocto-queue@1.2.2:
+    resolution: {integrity: sha512-4LCcse/U2MHZ63HAJVE+v71o7yOdIe4cZ70Wpf8D/IyjDKYQLV5GD46B+hSTjJsvV5PztjvHoU580EftxjDZFQ==}
+    engines: {node: '>=12.20'}
 
 snapshots:
 
@@ -1288,6 +1299,10 @@ snapshots:
 
   obug@2.1.4: {}
 
+  p-limit@7.3.3:
+    dependencies:
+      yocto-queue: 1.2.2
+
   pbf@5.1.2:
     dependencies:
       resolve-protobuf-schema: 2.1.0
@@ -1460,3 +1475,5 @@ snapshots:
       stackback: 0.0.2
 
   wkt-parser@1.5.6: {}
+
+  yocto-queue@1.2.2: {}

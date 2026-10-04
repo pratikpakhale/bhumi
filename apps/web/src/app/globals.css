@@ -1264,3 +1264,243 @@ a.source:hover {
     border-inline: 0;
   }
 }
+
+.relation-actions {
+  display: flex;
+  gap: var(--s2);
+}
+
+/* ── Map explorer ──────────────────────────────────────────────────────────
+ *
+ * The one screen that is not a 640px column: the map is the content, so it
+ * takes the room. Below 900px it sits at the top and stays there while the
+ * panel scrolls under it; above, the panel is a column beside it. Anything
+ * drawn on the map is, like the map, not themed. */
+
+.masthead-end {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.wordmark-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.explore {
+  display: grid;
+  grid-template-areas: "map" "panel";
+  grid-template-rows: auto 1fr;
+  min-height: 100dvh;
+}
+
+.explore-panel {
+  grid-area: panel;
+  min-width: 0;
+  padding: var(--s6) var(--s5) var(--s10);
+}
+
+.explore-map {
+  grid-area: map;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: 56dvh;
+  background: var(--surface-sunken);
+}
+
+.explore-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.explore-canvas.skeleton {
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+}
+
+/* Under the sticky map, "in view" means below it. */
+.explore-card {
+  scroll-margin-top: calc(56dvh + var(--s4));
+}
+
+@media (min-width: 900px) {
+  .explore {
+    grid-template-areas: "panel map";
+    grid-template-columns: minmax(360px, 420px) 1fr;
+    grid-template-rows: 100dvh;
+  }
+  .explore-panel {
+    overflow-y: auto;
+    border-right: 1px solid var(--line);
+    padding: var(--s7) var(--s6) var(--s9);
+  }
+  .explore-map {
+    position: relative;
+    height: 100dvh;
+  }
+}
+
+.explore-intro {
+  margin-top: var(--s5);
+  font-size: var(--t-sm);
+  line-height: 1.5;
+}
+
+/* What a tap will do, or what it is doing. Reports state; takes no taps. */
+.map-hint {
+  position: absolute;
+  top: var(--s3);
+  left: var(--s3);
+  z-index: 2;
+  max-width: min(36ch, calc(100% - 72px));
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: var(--r-md);
+  background: oklch(0.235 0.012 75 / 0.82);
+  color: oklch(0.99 0.003 75);
+  font-size: var(--t-sm);
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+.map-label {
+  appearance: none;
+  margin: 0;
+  border: 0;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: oklch(0.99 0.003 75 / 0.92);
+  color: oklch(0.235 0.012 75);
+  font: 560 var(--t-xs) / 1.3 var(--sans);
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 1px 3px oklch(0.235 0.012 75 / 0.3);
+  transition: opacity var(--dur) var(--ease), visibility var(--dur) var(--ease),
+    background-color var(--dur-fast) var(--ease);
+}
+.map-label:hover {
+  background: oklch(0.99 0.003 75);
+}
+.map-label[aria-current] {
+  background: oklch(0.475 0.145 264);
+  color: oklch(0.99 0.005 264);
+}
+@media (pointer: coarse) {
+  .map-label {
+    padding: 6px 10px;
+  }
+}
+
+/* Close enough that the drawings name every plot: the village names would
+   only cover them. */
+[data-detail="true"] .map-label {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.map-pending {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #84a9f7;
+  border: 2px solid #fdfbfa;
+  animation: ping 1.2s var(--ease) infinite;
+}
+@keyframes ping {
+  from {
+    box-shadow: 0 0 0 0 rgb(132 169 247 / 0.7);
+  }
+  to {
+    box-shadow: 0 0 0 14px rgb(132 169 247 / 0);
+  }
+}
+
+/* ── Picked plot ─────────────────────────────────────────────────────────── */
+
+.plot {
+  padding-top: var(--s6);
+}
+
+.plot-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+
+.plot-heading {
+  min-width: 0;
+}
+
+.plot-title {
+  margin: 0;
+  font-size: var(--t-lg);
+  font-weight: 560;
+  letter-spacing: -0.011em;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+
+.plot-place {
+  margin: 2px 0 0;
+  font-size: var(--t-sm);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.plot-close {
+  flex: none;
+  width: 44px;
+  padding: 0;
+}
+@media (min-width: 640px) {
+  .plot-close {
+    width: 38px;
+  }
+}
+
+.plot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-top: var(--s4);
+}
+
+.plot-surveys {
+  list-style: none;
+  margin: var(--s5) 0 var(--s4);
+  padding: 0;
+}
+
+.plot-survey {
+  padding: var(--s4) 0 var(--s2);
+  border-top: 1px solid var(--line);
+}
+
+.plot-survey-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  margin-bottom: var(--s1);
+}
+
+.plot-survey-number {
+  font-size: var(--t-md);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.plot-survey-actions {
+  display: flex;
+  gap: var(--s2);
+}
+
+.plot-skeleton {
+  display: grid;
+  gap: var(--s3);
+  padding-top: var(--s6);
+}

@@ -19,7 +19,7 @@
 import type { MultiPolygon, Polygon, Position } from "geojson";
 import { wktToGeoJSON } from "betterknown";
 import proj4 from "proj4";
-import { bhunakshaCode, type Bounds, type MapPlot, type VillageMap } from "./map.js";
+import { bhunakshaCode, parsePlotInfo, type Bounds, type MapPlot, type VillageMap } from "./map.js";
 import { MahabhulekhError } from "./types.js";
 import { portalFetch } from "./tls.js";
 
@@ -50,13 +50,36 @@ export class BhunakshaClient {
   /** The village's map, or `null` when Bhunaksha has no georeferenced map for it. */
   async village(district: string, taluka: string, village: string): Promise<VillageMap | null> {
     const gisCode = bhunakshaCode(district, taluka, village);
-    const extent = await this.rest<Extent | []>("rest/MapInfo/getVVVVExtentGeoref", {
+    // The same extent twice: in degrees, and in the metres the map was drawn
+    // in. Only together do they say which UTM zone that was.
+    const [degrees, metres] = await Promise.all([this.extent(gisCode, "4326"), this.extent(gisCode, "0")]);
+    if (!degrees || !metres) return null;
+    return {
+      gisCode,
+      bounds: [degrees.xmin, degrees.ymin, degrees.xmax, degrees.ymax],
+      utmZone: zoneOf([metres.xmin, metres.ymin, metres.xmax, metres.ymax], degrees),
+    };
+  }
+
+  /**
+   * Where a village is, in WGS84 degrees, or `null` when it is not mapped. One
+   * request where {@link village} makes two, for placing many villages at once.
+   */
+  async villageBounds(gisCode: string): Promise<Bounds | null> {
+    const e = await this.extent(gisCode, "4326");
+    return e && [e.xmin, e.ymin, e.xmax, e.ymax];
+  }
+
+  /** The number of the plot at a point (`[lng, lat]`), or `null` if none is drawn there. */
+  async plotAt(village: VillageMap, at: readonly [number, number]): Promise<string | null> {
+    const [x, y] = proj4("WGS84", utmDef(village.utmZone), [at[0], at[1]]) as [number, number];
+    const hit = await this.rest<{ kide?: string } | null>("rest/MapInfo/getPlotAtXY", {
       state: STATE,
-      giscode: gisCode,
-      srs: "4326",
+      giscode: village.gisCode,
+      x: x.toFixed(3),
+      y: y.toFixed(3),
     });
-    if (Array.isArray(extent) || !isExtent(extent)) return null;
-    return { gisCode, bounds: [extent.xmin, extent.ymin, extent.xmax, extent.ymax] };
+    return hit?.kide ?? null;
   }
 
   /** Every plot number drawn on the village map. */
@@ -90,13 +113,15 @@ export class BhunakshaClient {
     if (!isExtent(extent) || !projected) return null;
     if (projected.type !== "Polygon" && projected.type !== "MultiPolygon") return null;
 
-    const toWgs84 = utmToWgs84([info.xmin, info.ymin, info.xmax, info.ymax], extent);
-    const geometry = mapPositions(projected, toWgs84);
+    const zone = zoneOf([info.xmin, info.ymin, info.xmax, info.ymax], extent);
+    const toWgs84 = proj4(utmDef(zone), "WGS84");
+    const geometry = mapPositions(projected, (p) => toWgs84.forward([p[0]!, p[1]!]));
     return {
       number: info.plotno ?? number,
       areaSqm: info.area ?? 0,
       bounds: boundsOf(geometry),
       geometry,
+      holdings: parsePlotInfo(info.info ?? ""),
     };
   }
 
@@ -128,12 +153,24 @@ export class BhunakshaClient {
     return res.arrayBuffer();
   }
 
-  private async rest<T>(path: string, fields: Record<string, string>): Promise<T> {
+  private async extent(gisCode: string, srs: string): Promise<Extent | null> {
+    const e = await this.rest<Extent | [] | null>("rest/MapInfo/getVVVVExtentGeoref", {
+      state: STATE,
+      giscode: gisCode,
+      srs,
+    });
+    // An unmapped village answers `[]`.
+    return isExtent(e) ? e : null;
+  }
+
+  /** A REST call's JSON body; `null` for 204, which is how a lookup says "none". */
+  private async rest<T>(path: string, fields: Record<string, string>): Promise<T | null> {
     const res = await this.request(path, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams(fields).toString(),
     });
+    if (res.status === 204) return null;
     try {
       return (await res.json()) as T;
     } catch {
@@ -192,6 +229,8 @@ interface PlotInfo extends Extent {
   area?: number;
   /** WKT in the village map's UTM zone, metres. */
   the_geom?: string;
+  /** The holdings, as `Key : Value` text; see {@link parsePlotInfo}. */
+  info?: string;
 }
 
 const isExtent = (e: unknown): e is Extent =>
@@ -208,14 +247,14 @@ function readCookies(res: Response): string {
 }
 
 /**
- * The converter from the village's UTM zone to WGS84.
+ * The UTM zone an extent was drawn in, given the same extent in degrees.
  *
  * Maharashtra straddles zones 43 and 44, and a map near the 78°E seam may have
  * been drawn in either, so the zone is not computed from longitude alone: each
- * neighbouring zone is tried on the plot's UTM extent, and the one that lands
- * on the extent the service reports in degrees wins.
+ * neighbouring zone is tried on the UTM extent, and the one that lands on the
+ * extent the service reports in degrees wins.
  */
-function utmToWgs84(utm: Bounds, degrees: Extent): (p: Position) => Position {
+function zoneOf(utm: Bounds, degrees: Extent): number {
   const lng = (degrees.xmin + degrees.xmax) / 2;
   const lat = (degrees.ymin + degrees.ymax) / 2;
   const guess = Math.floor((lng + 180) / 6) + 1;
@@ -227,8 +266,7 @@ function utmToWgs84(utm: Bounds, degrees: Extent): (p: Position) => Position {
     const miss = Math.hypot(x - lng, y - lat);
     if (!best || miss < best.miss) best = { zone, miss };
   }
-  const convert = proj4(utmDef(best!.zone), "WGS84");
-  return (p) => convert.forward([p[0]!, p[1]!]);
+  return best!.zone;
 }
 
 const utmDef = (zone: number) => `+proj=utm +zone=${zone} +datum=WGS84 +units=m +no_defs`;

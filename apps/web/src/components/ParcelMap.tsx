@@ -1,10 +1,15 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/client";
 import { useResource } from "@/lib/resource";
+import { directionsHref, formatArea } from "@/lib/geo";
+import { mapHref } from "@/lib/map-params";
 import type { Place } from "@/lib/collection";
+
+import type { Camera } from "./MapCanvas";
 
 // MapLibre is most of a megabyte; only a page that is about to show a map pays for it.
 const MapCanvas = dynamic(() => import("./MapCanvas"), {
@@ -30,7 +35,11 @@ export function ParcelMap({ place, survey }: { place: Place; survey: string }) {
   const near = useNearViewport(frame, !!data?.village);
 
   const plot = data?.plot ?? null;
-  const centre = plot && [(plot.bounds[1] + plot.bounds[3]) / 2, (plot.bounds[0] + plot.bounds[2]) / 2];
+  const drawn = useMemo(() => (data?.village ? [data.village] : []), [data?.village]);
+  const camera = useMemo<Camera | null>(
+    () => (data?.village ? { bounds: plot?.bounds ?? data.village.bounds, maxZoom: 18 } : null),
+    [data?.village, plot],
+  );
 
   return (
     <section className="relation" aria-labelledby="rel-map">
@@ -38,15 +47,17 @@ export function ParcelMap({ place, survey }: { place: Place; survey: string }) {
         <h2 className="lbl" id="rel-map">
           Map
         </h2>
-        {centre && (
-          <a
-            className="btn btn-ghost"
-            href={`https://www.google.com/maps/dir/?api=1&destination=${centre[0]!.toFixed(6)},${centre[1]!.toFixed(6)}`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Directions
-          </a>
+        {data?.village && (
+          <div className="relation-actions">
+            <Link className="btn btn-ghost" href={mapHref({ ...place, plot: plot?.number ?? null })}>
+              Explore
+            </Link>
+            {plot && (
+              <a className="btn btn-ghost" href={directionsHref(plot.bounds)} target="_blank" rel="noreferrer">
+                Directions
+              </a>
+            )}
+          </div>
         )}
       </div>
 
@@ -82,8 +93,10 @@ export function ParcelMap({ place, survey }: { place: Place; survey: string }) {
           <div ref={frame} className="map-frame">
             {near ? (
               <MapCanvas
-                village={data.village}
+                villages={drawn}
                 plot={plot}
+                camera={camera}
+                cooperative
                 label={plot ? `Map of survey ${plot.number}, ${place.villageName}` : `Map of ${place.villageName}`}
               />
             ) : (
@@ -119,23 +132,4 @@ function useNearViewport(ref: React.RefObject<HTMLElement | null>, armed: boolea
     return () => io.disconnect();
   }, [ref, near, armed]);
   return near;
-}
-
-/** Square metres → guntha; 40 guntha make an acre. */
-const SQM_PER_GUNTHA = 101.17;
-
-/**
- * "0.33 ha · 32 guntha", "8.32 ha · 20 acre 22 guntha": hectares because the
- * 7/12 records area in them, acres and guntha because that is how land is
- * spoken of in Maharashtra.
- */
-function formatArea(sqm: number): string {
-  const ha = `${(sqm / 10_000).toFixed(2)} ha`;
-  const guntha = Math.round(sqm / SQM_PER_GUNTHA);
-  const acres = Math.floor(guntha / 40);
-  const rest = guntha % 40;
-  const spoken = [acres && `${acres} acre`, (rest || !acres) && `${rest} guntha`]
-    .filter(Boolean)
-    .join(" ");
-  return `${ha} · ${spoken}`;
 }

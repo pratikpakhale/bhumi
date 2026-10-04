@@ -10,8 +10,8 @@ export type { SessionOptions } from "./session.js";
 export { extractCaptcha } from "./viewstate.js";
 export { parseEightA, normalizeDigits, surveyBase } from "./eightA.js";
 export type { EightAHolding } from "./eightA.js";
-export { bhunakshaCode, matchPlot } from "./map.js";
-export type { Bounds, MapPlot, VillageMap } from "./map.js";
+export { bhunakshaCode, matchPlot, parsePlotInfo } from "./map.js";
+export type { Bounds, MapPlot, PlotHolding, VillageMap } from "./map.js";
 export type { BhunakshaOptions } from "./bhunaksha.js";
 export { MahabhulekhError } from "./types.js";
 export type {

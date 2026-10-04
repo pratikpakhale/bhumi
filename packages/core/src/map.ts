@@ -16,6 +16,8 @@ export interface VillageMap {
   gisCode: string;
   /** The village's extent in WGS84 degrees. */
   bounds: Bounds;
+  /** The UTM zone (northern hemisphere) the village was drawn in: 43 or 44. */
+  utmZone: number;
 }
 
 /** One survey/gat number as drawn on the village map. */
@@ -28,6 +30,63 @@ export interface MapPlot {
   bounds: Bounds;
   /** The plot boundary in WGS84 (GeoJSON `[lng, lat]` order). */
   geometry: Polygon | MultiPolygon;
+  /** Who holds the land inside the plot, per 7/12 sub-division and khata. */
+  holdings: PlotHolding[];
+}
+
+/**
+ * One khata's share of a 7/12 sub-division, as Bhunaksha lists it for a plot.
+ *
+ * Bhunaksha reads this from the same land records the 7/12 is printed from, so
+ * it names the sub-divisions a drawn plot covers — `131` is drawn once and held
+ * as `131/1/अ`, `131/1/ब` and `131/2` — which is what links a shape on the map
+ * back to the documents.
+ */
+export interface PlotHolding {
+  /** The 7/12 survey number, e.g. `131/1/अ`. */
+  survey: string;
+  khata: string | null;
+  /** In hectares, as the 7/12 records it. */
+  areaHa: number | null;
+  /** Uncultivable land (पोट खराबा) within it, in hectares. */
+  potKharabaHa: number | null;
+  owners: string[];
+}
+
+const HOLDING_FIELDS: Record<string, (h: PlotHolding, value: string) => void> = {
+  "survey no.": (h, v) => (h.survey = v),
+  "khata no.": (h, v) => (h.khata = v || null),
+  "total area": (h, v) => (h.areaHa = hectares(v)),
+  "pot kharaba": (h, v) => (h.potKharabaHa = hectares(v)),
+  "owner name": (h, v) =>
+    (h.owners = v
+      .split(",")
+      .map((o) => o.trim())
+      .filter(Boolean)),
+};
+
+const hectares = (v: string): number | null => {
+  const n = Number.parseFloat(normalizeDigits(v));
+  return Number.isFinite(n) ? n : null;
+};
+
+/**
+ * The holdings in a plot's `info` text: `Key : Value` lines, one block per
+ * khata, blocks separated by a rule of dashes. Unknown keys are skipped, so a
+ * field Bhunaksha adds later costs nothing.
+ */
+export function parsePlotInfo(info: string): PlotHolding[] {
+  const holdings: PlotHolding[] = [];
+  for (const block of info.split(/^-{3,}\s*$/m)) {
+    const h: PlotHolding = { survey: "", khata: null, areaHa: null, potKharabaHa: null, owners: [] };
+    for (const line of block.split("\n")) {
+      const at = line.indexOf(":");
+      if (at < 0) continue;
+      HOLDING_FIELDS[line.slice(0, at).trim().toLowerCase()]?.(h, line.slice(at + 1).trim());
+    }
+    if (h.survey) holdings.push(h);
+  }
+  return holdings;
 }
 
 /**
