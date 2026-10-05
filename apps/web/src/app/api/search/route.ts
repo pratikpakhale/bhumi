@@ -1,30 +1,17 @@
 import type { NextRequest } from "next/server";
-import type { SearchMode } from "@bhumi/core";
-import { withHandler } from "@/lib/api";
-import { withSession, searchSignature, type Locator } from "@/lib/store";
+import { readBody, searchBody, withHandler } from "@/lib/api";
+import { withSession, searchSignature } from "@/lib/store";
 
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   return withHandler(async () => {
-    const body = (await req.json()) as Omit<Locator, "mode"> & {
-      mode: SearchMode;
-      searchType: string;
-      query?: string;
-    };
-    const query = body.query ?? "";
-    const loc: Locator = {
-      recordType: body.recordType,
-      district: body.district,
-      taluka: body.taluka,
-      village: body.village,
-      mode: body.mode,
-    };
-    const parcels = await withSession(loc, async (session) => {
-      const parcels = await session.client.searchParcels(body.searchType, query);
+    const { mode, searchType, query, ...place } = await readBody(req, searchBody);
+    const parcels = await withSession({ ...place, mode }, async (session) => {
+      const parcels = await session.client.searchParcels(searchType, query);
       // Remember the question and its answer, so a follow-up record fetch on
       // this session knows the parcel dropdown is already populated.
-      session.searched = searchSignature(body.mode, body.searchType, query);
+      session.searched = searchSignature(mode, searchType, query);
       session.parcels = parcels;
       return parcels;
     });

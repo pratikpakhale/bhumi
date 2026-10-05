@@ -6,6 +6,7 @@ import type { MapPlot, PlotHolding } from "@bhumi/core";
 import { holderLookup, normalizeCode, parcelLookup, type Place } from "@/lib/collection";
 import { recordHref, searchHref } from "@/lib/search-params";
 import { directionsHref, formatArea } from "@/lib/geo";
+import { shareLink } from "@/lib/share";
 import { SaveControl } from "./SaveControl";
 
 /**
@@ -31,17 +32,17 @@ export function PlotCard({
   const surveys = bySurvey(plot.holdings);
 
   return (
-    <section className="plot" aria-labelledby="plot-title">
+    <section aria-labelledby="plot-title">
       <div className="plot-head">
         <div className="plot-heading">
-          <h2 className="plot-title" id="plot-title">
+          <h2 className="step-title plot-title" id="plot-title">
             Survey {plot.number}
           </h2>
           <p className="plot-place">
             <span lang="mr">{place.villageName}</span> · {formatArea(plot.areaSqm)}
           </p>
         </div>
-        <button type="button" className="btn btn-ghost plot-close" onClick={onClose} aria-label="Close">
+        <button type="button" className="btn btn-ghost plot-close" onClick={onClose} aria-label={`Close survey ${plot.number}`}>
           <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
             <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
           </svg>
@@ -52,7 +53,7 @@ export function PlotCard({
         <a className="btn btn-ghost" href={directionsHref(plot.bounds)} target="_blank" rel="noreferrer">
           Directions
         </a>
-        <CopyLink />
+        <ShareLink title={`Survey ${plot.number}, ${place.villageName}`} />
       </div>
 
       {surveys.length > 0 ? (
@@ -62,11 +63,18 @@ export function PlotCard({
               <div className="plot-survey-head">
                 <span className="plot-survey-number">{survey}</span>
                 <span className="plot-survey-actions">
-                  <Link className="btn btn-ghost" href={recordHref(parcelLookup(place, survey))} target="_blank">
+                  <Link
+                    className="btn btn-ghost btn-sm"
+                    href={recordHref(parcelLookup(place, survey))}
+                    target="_blank"
+                    aria-label={`7/12 of survey ${survey}`}
+                  >
                     7/12
                   </Link>
                   <SaveControl
                     subject={{ kind: "parcel", code: normalizeCode(survey), place, register: "7/12" }}
+                    className="btn btn-ghost btn-sm"
+                    label={`survey ${survey}`}
                   />
                 </span>
               </div>
@@ -117,20 +125,22 @@ function Holding({ place, holding: h }: { place: Place; holding: PlotHolding }) 
   );
 }
 
-function CopyLink() {
-  const [copied, setCopied] = useState(false);
+/** The URL holds the place and the plot, so the address is the link to share. */
+function ShareLink({ title }: { title: string }) {
+  const [note, setNote] = useState<string | null>(null);
   return (
     <button
       type="button"
       className="btn btn-ghost"
       onClick={() =>
-        void navigator.clipboard.writeText(location.href).then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1600);
+        void shareLink(title, location.href).then((how) => {
+          if (how === "shared") return;
+          setNote(how === "copied" ? "Link copied" : "Could not copy");
+          setTimeout(() => setNote(null), 1600);
         })
       }
     >
-      <span aria-live="polite">{copied ? "Copied" : "Copy link"}</span>
+      <span aria-live="polite">{note ?? "Share"}</span>
     </button>
   );
 }

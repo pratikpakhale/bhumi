@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { cacheForAMonth, readPlace, withHandler } from "@/lib/api";
+import { BadRequest, cacheForAMonth, readPlace, withHandler } from "@/lib/api";
 import { getParcelMap } from "@/lib/parcel-map";
 
 /**
@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
     await withHandler(async () => {
       const { district, taluka, village } = readPlace(req.nextUrl.searchParams, true);
       const survey = req.nextUrl.searchParams.get("survey")?.trim();
-      if (!survey) throw new Error("No survey number");
+      if (!survey) throw new BadRequest("No survey number.");
       return getParcelMap(district, taluka, village, survey);
     }),
   );

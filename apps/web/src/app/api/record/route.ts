@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
-import { MahabhulekhError, normalizeDigits, type SearchMode, type FetchRecordInput } from "@bhumi/core";
-import { withHandler } from "@/lib/api";
-import { withSession, searchSignature, type Locator } from "@/lib/store";
+import { MahabhulekhError, normalizeDigits } from "@bhumi/core";
+import { BadRequest, readBody, recordBody, withHandler } from "@/lib/api";
+import { withSession, searchSignature } from "@/lib/store";
 
 // Up to three submits on top of a cascade walk, against a portal that takes
 // seconds per postback.
@@ -18,33 +18,30 @@ export const maxDuration = 60;
  */
 export async function POST(req: NextRequest) {
   return withHandler(async () => {
-    const body = (await req.json()) as Omit<Locator, "mode"> & {
-      mode: SearchMode;
-      searchType?: string;
-      query?: string;
-    } & FetchRecordInput;
+    const { recordType, district, taluka, village, mode, searchType, query, ...input } = await readBody(
+      req,
+      recordBody,
+    );
+    if (recordType === "KJP") {
+      if (!input.measurementNumber || !input.sankalan || !input.purpose || !input.duration) {
+        throw new BadRequest("A Kami-Jasti request needs a scheme, purpose, priority and number.");
+      }
+    } else if (!input.parcel || !searchType) {
+      throw new BadRequest("A record request needs a parcel and the search that found it.");
+    }
 
-    const mode = body.mode ?? "number";
-    const loc: Locator = {
-      recordType: body.recordType,
-      district: body.district,
-      taluka: body.taluka,
-      village: body.village,
-      mode,
-    };
-    const document = await withSession(loc, async (session) => {
+    const document = await withSession({ recordType, district, taluka, village, mode }, async (session) => {
       // KJP addresses its record by measurement number and has no parcel dropdown.
-      if (body.recordType !== "KJP" && body.searchType) {
-        const query = body.query ?? "";
-        const signature = searchSignature(mode, body.searchType, query);
+      if (recordType !== "KJP" && searchType) {
+        const signature = searchSignature(mode, searchType, query);
         if (session.searched !== signature) {
-          session.parcels = await session.client.searchParcels(body.searchType, query);
+          session.parcels = await session.client.searchParcels(searchType, query);
           session.searched = signature;
         }
-        body.parcel = resolveParcel(session.parcels, body.parcel);
+        input.parcel = resolveParcel(session.parcels, input.parcel);
       }
       try {
-        return await session.client.fetchRecord(body);
+        return await session.client.fetchRecord(input);
       } finally {
         session.searched = null;
       }

@@ -13,6 +13,10 @@ interface Props<T extends string> {
   onChange: (value: T) => void;
   /** id of the visible label describing the group. */
   labelledBy: string;
+  /** id of text that explains the current choice. */
+  describedBy?: string;
+  /** The smaller size, for a control that sits in a heading row. */
+  compact?: boolean;
 }
 
 /**
@@ -22,7 +26,7 @@ interface Props<T extends string> {
  * in the tab order, and the arrow keys move between segments, which is what a
  * keyboard user expects from a control shaped like this.
  */
-export function Segmented<T extends string>({ items, value, onChange, labelledBy }: Props<T>) {
+export function Segmented<T extends string>({ items, value, onChange, labelledBy, describedBy, compact }: Props<T>) {
   const ref = useRef<HTMLDivElement>(null);
 
   function onKeyDown(e: React.KeyboardEvent) {
@@ -43,9 +47,10 @@ export function Segmented<T extends string>({ items, value, onChange, labelledBy
   return (
     <div
       ref={ref}
-      className="segmented"
+      className={compact ? "segmented segmented-compact" : "segmented"}
       role="radiogroup"
       aria-labelledby={labelledBy}
+      aria-describedby={describedBy}
       onKeyDown={onKeyDown}
     >
       {items.map((item) => (

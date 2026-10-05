@@ -118,6 +118,12 @@ export type Draft =
   | Omit<HolderEntry, "id" | "schema" | "addedAt">
   | Omit<MeasurementEntry, "id" | "schema" | "addedAt">;
 
+/** An entry taken out of the list, and where it stood. */
+export interface Removed {
+  entry: Entry;
+  index: number;
+}
+
 /** The wire format of an exported or shared collection. */
 export interface CollectionFile {
   app: "bhumi";
@@ -391,12 +397,26 @@ export const collection = {
   },
 
   /**
-   * Remove a subject. Its snapshots are left alone on purpose — the history is
-   * the one part of this that cannot be re-fetched, so discarding it has to be
-   * its own deliberate act (see `snapshots.ts`).
+   * Remove subjects, returning what was removed and where, for {@link restore}.
+   * Offline copies are left alone: they belong to the record, not the list, and
+   * clearing them is its own act on the Saved page (see `copies.ts`).
    */
-  forget(id: string) {
-    write(read().filter((e) => e.id !== id));
+  forget(ids: string | string[]): Removed[] {
+    const drop = new Set(typeof ids === "string" ? [ids] : ids);
+    const current = read();
+    const removed = current.flatMap((entry, index) => (drop.has(entry.id) ? [{ entry, index }] : []));
+    if (removed.length) write(current.filter((e) => !drop.has(e.id)));
+    return removed;
+  },
+
+  /** Undo a {@link forget}: put each entry back where it was, unless it is back already. */
+  restore(removed: Removed[]) {
+    const next = [...read()];
+    for (const { entry, index } of [...removed].sort((a, b) => a.index - b.index)) {
+      if (next.some((e) => e.id === entry.id)) continue;
+      next.splice(Math.min(index, next.length), 0, entry);
+    }
+    write(next);
   },
 
   update(id: string, patch: Partial<Pick<Entry, "nickname" | "tags">>) {
@@ -414,12 +434,6 @@ export const collection = {
     );
   },
 
-  /**
-   * Record what a holder's 8A listed.
-   *
-   * Called with every 8A that arrives, saved or not — for an unsaved holder it
-   * is a no-op, and saving them later re-reads it from the document on screen.
-   */
   /** Replace an entry's place — used to fill in names it was saved without. */
   setPlace(id: string, place: Place) {
     const list = read();
@@ -430,6 +444,12 @@ export const collection = {
     write(next);
   },
 
+  /**
+   * Record what a holder's 8A listed.
+   *
+   * Called with every 8A that arrives, saved or not — for an unsaved holder it
+   * is a no-op, and saving them later re-reads it from the document on screen.
+   */
   setHoldings(id: string, numbers: string[]) {
     const at = new Date().toISOString();
     write(

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { recordHref } from "@/lib/search-params";
+import { RECORD_LABELS, recordHref } from "@/lib/search-params";
 import { lookupFor, placeOf, titleOf, useCollection, viewOf, type Entry } from "@/lib/collection";
 
 /**
@@ -21,7 +21,10 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
+  const hasEntries = entries.length > 0;
   useEffect(() => {
+    // With nothing saved there is nothing to open, and the browser's own ⌘K stays.
+    if (!hasEntries) return;
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
@@ -30,14 +33,18 @@ export function CommandPalette() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [hasEntries]);
 
+  // Focus goes into the palette on open and back where it was on close.
   useEffect(() => {
-    if (open) {
-      setQuery("");
-      setActive(0);
-      inputRef.current?.focus();
-    }
+    if (!open) return;
+    const before = document.activeElement;
+    setQuery("");
+    setActive(0);
+    inputRef.current?.focus();
+    return () => {
+      if (before instanceof HTMLElement) before.focus();
+    };
   }, [open]);
 
   const matches = useMemo(() => filter(entries, query), [entries, query]);
@@ -63,7 +70,7 @@ export function CommandPalette() {
         className="palette"
         role="dialog"
         aria-modal="true"
-        aria-label="Open a saved land"
+        aria-label="Open a saved record"
         onPointerDown={(e) => e.stopPropagation()}
       >
         <input
@@ -71,9 +78,11 @@ export function CommandPalette() {
           className="palette-input"
           role="combobox"
           aria-expanded="true"
+          aria-autocomplete="list"
           aria-controls="palette-list"
           aria-activedescendant={matches[active] ? `palette-${active}` : undefined}
-          placeholder="Open"
+          aria-label="Search saved records"
+          placeholder="Open a saved record…"
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -81,6 +90,8 @@ export function CommandPalette() {
           }}
           onKeyDown={(e) => {
             if (e.key === "Escape") setOpen(false);
+            // The input is the dialog's only stop; Tab must not walk into the page behind.
+            else if (e.key === "Tab") e.preventDefault();
             else if (e.key === "ArrowDown") {
               e.preventDefault();
               setActive((i) => Math.min(i + 1, matches.length - 1));
@@ -114,11 +125,11 @@ export function CommandPalette() {
               <span className="palette-opt-path" lang="mr">
                 {placeOf(entry)}
               </span>
-              <span className="palette-opt-type">{viewOf(entry)}</span>
+              <span className="palette-opt-type">{RECORD_LABELS[viewOf(entry)]}</span>
             </li>
           ))}
-          {matches.length === 0 && <li className="combo-empty">Nothing matches</li>}
         </ul>
+        {matches.length === 0 && <p className="combo-empty">Nothing saved matches “{query.trim()}”.</p>}
       </div>
     </div>
   );

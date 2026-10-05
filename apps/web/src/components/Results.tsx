@@ -53,9 +53,10 @@ export function Results({
   // A loose number search can return four figures of rows; render a workable
   // slice and let the query do the narrowing.
   const shown = subjects.slice(0, LIMIT);
+  const noun = type === "8A" ? "khata" : type === "PropertyCard" ? "CTS" : "survey";
 
   return (
-    <div className="results">
+    <div>
       <div className="results-head">
         <span className="lbl">
           {type === "8A" ? "Holders" : "Parcels"}
@@ -64,7 +65,7 @@ export function Results({
         {subjects.length > 1 && subjects.length <= BULK && (
           <button
             type="button"
-            className="btn btn-ghost"
+            className="btn btn-ghost btn-sm"
             onClick={() => {
               for (const { subject } of subjects) collection.save(subject);
               setNote(`Saved ${subjects.length}`);
@@ -80,13 +81,13 @@ export function Results({
             <Link className="results-row" href={recordHref(route ? { ...lookupFor(subject), ...route } : lookupFor(subject), lang)}>
               <Row type={type} label={option.label} />
             </Link>
-            <SaveControl subject={subject} />
+            <SaveControl subject={subject} className="btn btn-ghost btn-sm" label={`${noun} ${subject.code}`} />
           </li>
         ))}
       </ul>
       {shown.length < subjects.length && (
         <p className="help">
-          {shown.length} of {subjects.length}
+          Showing the first {shown.length} of {subjects.length}. Type more to narrow the list.
         </p>
       )}
       {note && (

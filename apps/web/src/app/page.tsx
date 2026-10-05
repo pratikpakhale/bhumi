@@ -4,18 +4,26 @@ import { SITE } from "@/lib/site";
 import { Home } from "./home";
 
 /** What the site is, for search engines: a free web app over public records. */
-const STRUCTURED = {
-  "@context": "https://schema.org",
-  "@type": "WebApplication",
-  name: SITE.name,
-  url: SITE.url,
-  description: SITE.description,
-  applicationCategory: "ReferenceApplication",
-  operatingSystem: "Any",
-  inLanguage: ["en-IN", "mr-IN"],
-  areaServed: { "@type": "State", name: "Maharashtra" },
-  offers: { "@type": "Offer", price: "0", priceCurrency: "INR" },
-};
+const STRUCTURED = [
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    name: SITE.name,
+    url: SITE.url,
+    description: SITE.description,
+    applicationCategory: "ReferenceApplication",
+    operatingSystem: "Any",
+    inLanguage: ["en-IN", "mr-IN"],
+    areaServed: { "@type": "State", name: "Maharashtra" },
+    offers: { "@type": "Offer", price: "0", priceCurrency: "INR" },
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: SITE.name,
+    url: SITE.url,
+  },
+];
 
 /**
  * The page is server-rendered from the URL.
@@ -38,7 +46,8 @@ export default async function Page({
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED) }}
+        // `<` escaped so no string in the data can close the script element.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED).replace(/</g, "\\u003c") }}
       />
       <Home initial={initial} />
     </>

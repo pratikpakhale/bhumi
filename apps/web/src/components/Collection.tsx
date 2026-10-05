@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { recordHref } from "@/lib/search-params";
+import { RECORD_LABELS, recordHref } from "@/lib/search-params";
 import {
   collection,
   lookupFor,
@@ -13,173 +13,59 @@ import {
   viewOf,
   type Entry,
 } from "@/lib/collection";
-import { COLLECTION_PARAM, collectionUrl, decodeCollection } from "@/lib/collection-link";
+import { COLLECTION_PARAM, decodeCollection } from "@/lib/collection-link";
+import { errorMessage } from "@/lib/client";
+import { Failure } from "@/components/Status";
 
-const msg = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong");
+/** Rows the home screen offers before pointing at the Saved page. */
+const SHORTLIST = 5;
 
 /**
- * The collection, as the first thing on the page.
+ * The first few saved records, on the search screen.
  *
- * Not a drawer and not a tab: for a returning user this list *is* the shortest
- * path to a record, and the search below it is the fallback for a subject they
- * have not kept yet.
+ * For a returning user this list *is* the shortest path to a record, and the
+ * search below it is the fallback for something they have not kept yet.
+ * Managing the list — renaming, reordering, sharing — is the Saved page's job.
  */
-export function Collection() {
+export function SavedShortlist() {
   const entries = useCollection();
-  const [editing, setEditing] = useState(false);
-
   if (entries.length === 0) return null;
-
   return (
     <section className="saved" aria-labelledby="saved-title">
       <div className="saved-head">
         <h2 className="step-title" id="saved-title">
-          Saved<span className="count">{entries.length}</span>
+          Your saved records
         </h2>
-        <button
-          type="button"
-          className="btn btn-ghost"
-          aria-pressed={editing}
-          onClick={() => setEditing((on) => !on)}
-        >
-          {editing ? "Done" : "Edit"}
-        </button>
+        <Link className="step-link" href="/saved">
+          {entries.length > SHORTLIST ? `All ${entries.length}` : "Manage"}
+        </Link>
       </div>
-
       <ul className="saved-list">
-        {entries.map((entry, i) => (
+        {entries.slice(0, SHORTLIST).map((entry) => (
           <li key={entry.id}>
-            {editing ? (
-              <EditRow entry={entry} index={i} total={entries.length} />
-            ) : (
-              <Link className="saved-row" href={recordHref(lookupFor(entry))}>
-                <span className="saved-row-title" lang="mr">
-                  {titleOf(entry)}
-                </span>
-                <span className="saved-row-path" lang="mr">
-                  {placeOf(entry)}
-                </span>
-                <span className="saved-row-type">{viewOf(entry)}</span>
-              </Link>
-            )}
+            <SavedRow entry={entry} />
           </li>
         ))}
       </ul>
-
-      {editing && <Tools />}
     </section>
   );
 }
 
-/** Rename, reorder and remove. Reorder is buttons, not drag: keyboard-reachable. */
-function EditRow({ entry, index, total }: { entry: Entry; index: number; total: number }) {
+/** One saved record as a link to it. */
+export function SavedRow({ entry, offline }: { entry: Entry; offline?: boolean }) {
   return (
-    <div className="saved-edit">
-      <input
-        className="inp"
-        defaultValue={entry.nickname ?? ""}
-        placeholder={titleOf(entry)}
-        aria-label={`Name for ${titleOf(entry)}`}
-        onBlur={(e) => collection.update(entry.id, { nickname: e.target.value })}
-      />
-      <div className="saved-edit-actions">
-        <button
-          type="button"
-          className="btn btn-ghost"
-          disabled={index === 0}
-          aria-label="Move up"
-          onClick={() => collection.move(entry.id, index - 1)}
-        >
-          ↑
-        </button>
-        <button
-          type="button"
-          className="btn btn-ghost"
-          disabled={index === total - 1}
-          aria-label="Move down"
-          onClick={() => collection.move(entry.id, index + 1)}
-        >
-          ↓
-        </button>
-        <button type="button" className="btn btn-ghost" onClick={() => collection.forget(entry.id)}>
-          Remove
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Getting the collection off this device, and back onto another one.
- *
- * A file is the backup; a link is the transfer. Both carry the same payload —
- * subjects and names — and neither carries the saved copies, which are
- * megabytes of image and personal to the device that gathered them.
- */
-function Tools() {
-  const [note, setNote] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  async function share() {
-    try {
-      await navigator.clipboard.writeText(await collectionUrl());
-      setNote("Link copied");
-    } catch (e) {
-      setNote(msg(e));
-    }
-  }
-
-  function exportFile() {
-    const blob = new Blob([JSON.stringify(collection.toFile(), null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `bhumi-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 10_000);
-  }
-
-  async function importFile(file: File) {
-    try {
-      const { added, skipped } = collection.merge(collection.fromFile(await file.text()));
-      setNote(`Added ${added}, skipped ${skipped}`);
-    } catch (e) {
-      setNote(msg(e));
-    }
-  }
-
-  return (
-    <div className="saved-tools">
-      <div className="record-actions">
-        <button type="button" className="btn btn-ghost" onClick={() => void share()}>
-          Copy link
-        </button>
-        <button type="button" className="btn btn-ghost" onClick={exportFile}>
-          Export
-        </button>
-        <button type="button" className="btn btn-ghost" onClick={() => fileRef.current?.click()}>
-          Import
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/json,.json"
-          className="sr-only"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            e.target.value = "";
-            if (file) void importFile(file);
-          }}
-        />
-      </div>
-      {note && (
-        <p className="help" role="status">
-          {note}
-        </p>
-      )}
-    </div>
+    <Link className="saved-row" href={recordHref(lookupFor(entry))}>
+      <span className="saved-row-title" lang="mr">
+        {titleOf(entry)}
+      </span>
+      {/* Offline sits with the place, not in the type pill, which on a phone
+          would take the width the Marathi name needs. */}
+      <span className="saved-row-path">
+        <span lang="mr">{placeOf(entry)}</span>
+        {offline && " · Offline copy"}
+      </span>
+      <span className="saved-row-type">{RECORD_LABELS[viewOf(entry)]}</span>
+    </Link>
   );
 }
 
@@ -193,19 +79,22 @@ export function SharedCollection() {
   const token = useSearchParams().get(COLLECTION_PARAM);
   const [incoming, setIncoming] = useState<Entry[] | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) return;
     let alive = true;
     void decodeCollection(token)
       .then((entries) => alive && setIncoming(entries))
-      .catch((e) => alive && setNote(msg(e)));
+      .catch((e) => alive && setError(errorMessage(e)));
     return () => {
       alive = false;
     };
   }, [token]);
 
-  if (!token || (!incoming && !note)) return null;
+  // Not gated on `token`: Next syncs `replaceState` into useSearchParams, so
+  // dropping the token would otherwise hide the note saying what was added.
+  if (!incoming && !note && !error) return null;
 
   return (
     <section className="shared" aria-labelledby="shared-title">
@@ -213,7 +102,12 @@ export function SharedCollection() {
         Shared with you
         {incoming && <span className="count">{incoming.length}</span>}
       </h2>
-      {note && <p className="help">{note}</p>}
+      {error && <Failure message={error} />}
+      {note && (
+        <p className="help" role="status">
+          {note}
+        </p>
+      )}
       {incoming && (
         <>
           <p className="shared-names" lang="mr">
@@ -227,7 +121,11 @@ export function SharedCollection() {
               onClick={() => {
                 const { added, skipped } = collection.merge(incoming);
                 setIncoming(null);
-                setNote(`Added ${added}, skipped ${skipped}`);
+                setNote(
+                  added === 0
+                    ? "Everything in that link is already saved."
+                    : `Added ${added}${skipped ? `; ${skipped} were already saved` : ""}.`,
+                );
                 dropToken();
               }}
             >

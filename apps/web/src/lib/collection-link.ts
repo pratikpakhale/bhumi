@@ -8,9 +8,9 @@
  * query param, send it over WhatsApp. Twenty lands compress to well under a
  * kilobyte, because the repeated JSON keys are exactly what gzip erases.
  *
- * It carries subjects and names only — never snapshots. The history is megabytes
- * of image data and is personal to the device that gathered it; what travels is
- * the *addresses*, so the recipient fetches their own copies.
+ * It carries subjects and names only — never the offline copies, which are
+ * megabytes of image data and personal to the device that fetched them; what
+ * travels is the *addresses*, so the recipient fetches their own.
  *
  * The payload is byte-identical to the exported `.json` file, so import-from-
  * file and import-from-link share one format and one validator.
@@ -41,7 +41,10 @@ export async function decodeCollection(token: string): Promise<Entry[]> {
   let json: string;
   if (token[0] === GZIP) {
     const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
-    json = await new Response(stream).text();
+    // A link cut short mid-token fails here with the browser's own wording.
+    json = await new Response(stream).text().catch(() => {
+      throw new Error(NOT_A_COLLECTION);
+    });
   } else {
     json = new TextDecoder().decode(bytes);
   }
@@ -53,6 +56,8 @@ export async function collectionUrl(entries?: Entry[]): Promise<string> {
   const token = await encodeCollection(entries);
   return `${window.location.origin}/?${COLLECTION_PARAM}=${token}`;
 }
+
+const NOT_A_COLLECTION = "That link is not a Bhumi collection. It may have been cut short when it was shared.";
 
 const encodeUtf8 = (s: string) => new TextEncoder().encode(s);
 
@@ -71,7 +76,7 @@ function unbase64url(token: string): Uint8Array<ArrayBuffer> {
   try {
     binary = atob(padded + "=".repeat((4 - (padded.length % 4)) % 4));
   } catch {
-    throw new Error("That link is not a Bhumi collection.");
+    throw new Error(NOT_A_COLLECTION);
   }
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);

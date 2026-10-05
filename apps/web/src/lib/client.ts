@@ -25,15 +25,33 @@ export interface Locator {
 }
 
 const memo = new Map<string, Promise<unknown>>();
+/** The answers that have already arrived, readable without awaiting. */
+const settled = new Map<string, unknown>();
+
 function cached<T>(key: string, fn: () => Promise<T>): Promise<T> {
   const hit = memo.get(key);
   if (hit) return hit as Promise<T>;
-  const p = fn().catch((e) => {
-    memo.delete(key); // don't cache failures
-    throw e;
-  });
+  const p = fn().then(
+    (value) => {
+      settled.set(key, value);
+      return value;
+    },
+    (e: unknown) => {
+      memo.delete(key); // don't cache failures
+      throw e;
+    },
+  );
   memo.set(key, p);
   return p;
+}
+
+/**
+ * A memoised answer that has already arrived, synchronously. Lets a screen
+ * returning to something it has seen paint it in the same frame instead of
+ * flashing a skeleton while an already-resolved promise settles.
+ */
+export function peek<T>(key: string): T | undefined {
+  return settled.get(key) as T | undefined;
 }
 
 /** An API failure; `retryable` when the portal, not the request, was at fault. */
@@ -46,6 +64,16 @@ export class ApiError extends Error {
   }
 }
 
+/** What to tell the user about a failure. */
+export const errorMessage = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong.");
+
+/**
+ * Whether asking again could help. Only a request the server judged malformed
+ * or unanswerable says no; anything else — the network, a timeout, a bug in
+ * this tab — is worth one more try.
+ */
+export const canRetry = (e: unknown) => !(e instanceof ApiError) || e.retryable;
+
 async function readJSON<T>(res: Response): Promise<T> {
   // A platform timeout or crash answers with an HTML page, not our JSON.
   const data = (await res.json().catch(() => null)) as (T & { error?: string; retryable?: boolean }) | null;
@@ -56,12 +84,27 @@ async function readJSON<T>(res: Response): Promise<T> {
   throw new ApiError(data.error, data.retryable ?? res.status >= 500);
 }
 
+/**
+ * The longest any request may take. The server gives the portal 60s; past that
+ * the platform has already given up, and a request still open is one the
+ * browser has lost track of — better to say so and offer a retry than to spin.
+ */
+const TIMEOUT_MS = 70_000;
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(url, init);
-  } catch {
-    throw new ApiError("You appear to be offline. Check your connection and try again.", true);
+    res = await fetch(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "TimeoutError") {
+      throw new ApiError("The land-record servers did not answer in time. They are often slow; please try again.", true);
+    }
+    throw new ApiError(
+      typeof navigator !== "undefined" && !navigator.onLine
+        ? "You are offline. Check your connection and try again."
+        : "Could not reach Bhumi. Check your connection and try again.",
+      true,
+    );
   }
   return readJSON<T>(res);
 }
@@ -138,12 +181,6 @@ export const api = {
         ),
     ),
 
-  /** Whether {@link search} already holds an answer for this question. */
-  hasSearch: (loc: Locator, mode: SearchMode, searchType: string, query: string) =>
-    memo.has(
-      `s|${loc.recordType}|${loc.district}|${loc.taluka}|${loc.village}|${mode}|${searchType}|${query.trim()}`,
-    ),
-
   /**
    * `input` should carry the `searchType` + `query` that produced the parcel:
    * the portal only populates its parcel dropdown as a side effect of
@@ -184,7 +221,11 @@ export const api = {
     );
     if (pick.code && pick.plot) {
       const key = `m|${district}|${taluka}|${pick.code}|${pick.plot.number}`;
-      if (!memo.has(key)) memo.set(key, Promise.resolve({ village: pick.village, plot: pick.plot }));
+      if (!memo.has(key)) {
+        const found = { village: pick.village, plot: pick.plot };
+        memo.set(key, Promise.resolve(found));
+        settled.set(key, found);
+      }
     }
     return pick;
   },

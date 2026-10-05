@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { RecordDocument, RecordType } from "@bhumi/core";
-import type { Snapshot } from "@/lib/snapshots";
+import { documentBlob, type Copy } from "@/lib/copies";
+import { shareLink } from "@/lib/share";
 
 const LABELS: Record<string, { en: string; mr: string }> = {
   "7/12": { en: "7/12 Extract", mr: "सातबारा" },
@@ -23,7 +24,7 @@ const LABELS: Record<string, { en: string; mr: string }> = {
 /**
  * A record ready to be displayed, from whichever source.
  *
- * A live fetch and a stored snapshot are the same document in different
+ * A live fetch and the copy kept on this device are the same document in different
  * wrappers — base64 in a JSON response, or bytes in IndexedDB — so both are
  * normalised to this before rendering. That is what lets the offline copy and
  * the fresh one go through one renderer instead of two that drift.
@@ -35,50 +36,35 @@ export type Viewable =
 /** Decode an API response into something displayable. */
 export function viewableFromDocument(doc: RecordDocument): Viewable {
   if (doc.format === "html") return { recordType: doc.recordType, format: "html", html: doc.html };
-  const binary = atob(doc.imageBase64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return {
-    recordType: doc.recordType,
-    format: "image",
-    // Pinned to `image/*` so a mislabelled document can never be served as
-    // something scriptable from this origin.
-    mimeType: doc.mimeType.startsWith("image/") ? doc.mimeType : "application/octet-stream",
-    blob: new Blob([bytes], { type: doc.mimeType }),
-  };
+  const blob = documentBlob(doc);
+  return { recordType: doc.recordType, format: "image", mimeType: blob.type, blob };
 }
 
-/** Read a stored snapshot back into something displayable. */
-export async function viewableFromSnapshot(snap: Snapshot): Promise<Viewable> {
-  return snap.format === "image"
-    ? { recordType: snap.recordType, format: "image", mimeType: snap.mimeType, blob: snap.blob }
-    : { recordType: snap.recordType, format: "html", html: await snap.blob.text() };
+/** Read the device's copy back into something displayable. */
+export async function viewableFromCopy(copy: Copy): Promise<Viewable> {
+  return copy.format === "image"
+    ? { recordType: copy.recordType, format: "image", mimeType: copy.mimeType, blob: copy.blob }
+    : { recordType: copy.recordType, format: "html", html: await copy.blob.text() };
 }
 
 export function RecordView({
   doc,
+  subject,
   meta,
   actions,
-  scrollIntoView = true,
 }: {
   doc: Viewable;
-  /** Extra line under the title — freshness, the date a snapshot was taken. */
+  /** What the record is about — "Survey 167/2 बोरगांव" — for file names and sharing. */
+  subject?: string;
+  /** Appended to the line under the title — when this copy was fetched. */
   meta?: ReactNode;
-  /** Extra buttons alongside Open / Copy link / Download. */
+  /** Extra buttons alongside Open / Share / Download. */
   actions?: ReactNode;
-  scrollIntoView?: boolean;
 }) {
   const { en: title, mr: native } = LABELS[doc.recordType] ?? {
     en: doc.recordType,
     mr: "",
   };
-  const ref = useRef<HTMLElement>(null);
-
-  // The record is the point of the page; on a phone it lands well below the
-  // fold on the search screen, so bring it into view when it arrives.
-  useEffect(() => {
-    if (scrollIntoView) ref.current?.scrollIntoView({ block: "start" });
-  }, [doc, scrollIntoView]);
 
   /**
    * One object URL for the life of the document, used for display, Open and
@@ -97,38 +83,43 @@ export function RecordView({
 
   /**
    * The whole request lives in the URL, so the address bar already *is* the
-   * link that reopens this document — there is nothing to assemble.
+   * link that reopens this document — there is nothing to assemble. On a phone
+   * it goes to the share sheet, where WhatsApp is; elsewhere to the clipboard.
    */
-  const [copied, setCopied] = useState(false);
-  const copiedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  useEffect(() => () => clearTimeout(copiedTimer.current), []);
+  const [shared, setShared] = useState<string | null>(null);
+  const sharedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(sharedTimer.current), []);
 
-  function copyLink() {
-    void navigator.clipboard.writeText(window.location.href).then(() => {
-      setCopied(true);
-      copiedTimer.current = setTimeout(() => setCopied(false), 2000);
-    });
+  async function share() {
+    const how = await shareLink([title, subject].filter(Boolean).join(" — "), window.location.href);
+    if (how === "shared") return;
+    setShared(how === "copied" ? "Link copied" : "Could not copy");
+    clearTimeout(sharedTimer.current);
+    sharedTimer.current = setTimeout(() => setShared(null), 2500);
   }
 
   function download() {
     if (!url) return;
-    const extension = doc.format === "image" ? (doc.mimeType.split("/")[1] ?? "jpg") : "html";
+    const extension = doc.format === "image" ? (doc.mimeType.split("/")[1] ?? "jpg").replace("jpeg", "jpg") : "html";
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${doc.recordType.replace("/", "-")}.${extension}`;
+    a.download = `${fileName([doc.recordType, subject])}.${extension}`;
     a.click();
   }
 
   return (
-    <section className="record" ref={ref} aria-labelledby="record-title">
+    <section className="record" aria-labelledby="record-title">
       <div className="record-bar">
         <div>
           <h2 id="record-title">{title}</h2>
           <p className="record-meta">
-            {native && <span lang="mr">{native}</span>}
-            {native && " · "}
+            {native && (
+              <>
+                <span lang="mr">{native}</span> ·{" "}
+              </>
+            )}
             {describe(doc, blob)}
-            {meta}
+            {meta && <> · {meta}</>}
           </p>
         </div>
         <div className="record-actions">
@@ -146,8 +137,8 @@ export function RecordView({
               Open
             </button>
           )}
-          <button type="button" className="btn btn-ghost" onClick={copyLink}>
-            {copied ? "Link copied" : "Copy link"}
+          <button type="button" className="btn btn-ghost" onClick={() => void share()}>
+            <span aria-live="polite">{shared ?? "Share"}</span>
           </button>
           <button type="button" className="btn btn-ghost" disabled={!url} onClick={download}>
             Download
@@ -188,9 +179,30 @@ function describe(doc: Viewable, blob: Blob): string {
   return `${format}, ${Math.round(blob.size / 1024)} KB`;
 }
 
+/**
+ * "7-12 Survey 167-2 बोरगांव" — readable in a downloads folder, and safe on
+ * every file system: no slashes, no reserved characters.
+ */
+function fileName(parts: (string | undefined)[]): string {
+  return parts
+    .filter(Boolean)
+    .join(" ")
+    .replace(/[\\/:*?"<>|,]+/g, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+}
+
+const escapeHtml = (s: string) =>
+  s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+
 /** Wrap a bare HTML fragment in a minimal, printable document. */
 function wrapHtml(fragment: string, title: string): string {
-  return `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title>
+  // The fragment is the portal's markup. The on-screen frame is sandboxed, but a
+  // downloaded file opens unsandboxed, so the policy travels inside it.
+  return `<!doctype html><html><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: https:">
+<title>${escapeHtml(title)}</title>
 <style>
   body{font-family:"Noto Sans Devanagari",system-ui,sans-serif;color:#1a1613;margin:16px;font-size:13px;line-height:1.45}
   table{border-collapse:collapse;width:100%}

@@ -1,10 +1,11 @@
 /*
  * Bhumi — "registry ink on paper".
  *
- * Warm paper ground, cold indigo ink for every mark the user makes. The full
- * rationale, contrast maths and token table live in DESIGN.md at the repo root;
- * this file is its implementation. Neutrals are all tinted to hue 75 so nothing
- * reads as a cold digital grey.
+ * Warm paper ground, register-blue ink for every mark the user makes; the
+ * mark's saffron field appears in the logo and nowhere in the interface. The
+ * full rationale, contrast maths and token table live in DESIGN.md at the repo
+ * root; this file is its implementation. Neutrals are all tinted to hue 75 so
+ * nothing reads as a cold digital grey.
  */
 
 :root {
@@ -23,11 +24,11 @@
   --text-2: oklch(0.4 0.012 75);
   --text-3: oklch(0.49 0.01 75);
 
-  --accent: oklch(0.475 0.145 264);
-  --accent-hover: oklch(0.42 0.15 264);
-  --accent-fg: oklch(0.44 0.15 264);
-  --accent-soft: oklch(0.95 0.028 264);
-  --on-accent: oklch(0.99 0.005 264);
+  --accent: oklch(0.47 0.16 256);
+  --accent-hover: oklch(0.41 0.16 256);
+  --accent-fg: oklch(0.45 0.16 256);
+  --accent-soft: oklch(0.95 0.03 256);
+  --on-accent: oklch(0.99 0.005 256);
 
   --danger: oklch(0.475 0.16 27);
   --danger-soft: oklch(0.958 0.022 27);
@@ -52,13 +53,15 @@
   --s9: 56px;
   --s10: 72px;
 
-  --t-micro: 0.6875rem;
-  --t-xs: 0.75rem;
-  --t-sm: 0.8125rem;
-  --t-base: 0.875rem;
-  --t-md: 0.9375rem;
-  --t-lg: 1.0625rem;
-  --t-xl: 1.375rem;
+  /* A step larger than a dense tool would use: many readers are on small
+     phones, in sunlight, reading names in a second script. */
+  --t-micro: 0.75rem;
+  --t-xs: 0.8125rem;
+  --t-sm: 0.875rem;
+  --t-base: 0.9375rem;
+  --t-md: 1rem;
+  --t-lg: 1.125rem;
+  --t-xl: 1.5rem;
 
   --r-sm: 6px;
   --r-md: 8px;
@@ -87,11 +90,11 @@
     --text-2: oklch(0.735 0.008 75);
     --text-3: oklch(0.615 0.008 75);
 
-    --accent: oklch(0.475 0.145 264);
-    --accent-hover: oklch(0.535 0.15 264);
-    --accent-fg: oklch(0.74 0.12 264);
-    --accent-soft: oklch(0.29 0.045 264);
-    --on-accent: oklch(0.99 0.005 264);
+    --accent: oklch(0.5 0.16 256);
+    --accent-hover: oklch(0.54 0.16 256);
+    --accent-fg: oklch(0.76 0.12 256);
+    --accent-soft: oklch(0.3 0.06 256);
+    --on-accent: oklch(0.99 0.005 256);
 
     --danger: oklch(0.7 0.15 27);
     --danger-soft: oklch(0.285 0.05 27);
@@ -157,52 +160,120 @@ code {
 
 .masthead {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: var(--s4);
-  padding-bottom: var(--s5);
+  gap: var(--s3);
+  padding-bottom: var(--s3);
   border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: 44px;
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--r-md);
+}
+
+.mark {
+  display: block;
+  flex: none;
+}
+
+.wordmark {
+  font-size: var(--t-lg);
+  font-weight: 620;
+  letter-spacing: -0.022em;
+  line-height: 1.15;
+}
+
+.nav {
+  display: flex;
+  gap: 2px;
+}
+
+/* The current page is marked by weight and an underline, never colour alone. */
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--s3);
+  border-radius: var(--r-md);
+  color: var(--text-2);
+  font-size: var(--t-sm);
+  font-weight: 500;
+  text-decoration: none;
+  transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+}
+.nav-link:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+.nav-link[aria-current="page"] {
+  color: var(--text);
+  font-weight: 620;
+  text-decoration: underline;
+  text-decoration-color: var(--accent-fg);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 6px;
+}
+
+/* On the narrowest phones the mark alone names the site; the link keeps its label. */
+@media (max-width: 379px) {
+  .brand .wordmark {
+    display: none;
+  }
+  .nav-link {
+    padding: 0 var(--s2);
+  }
+}
+
+.intro {
+  padding: var(--s7) 0 var(--s2);
+}
+
+.intro-title {
+  margin: 0;
+  font-size: var(--t-xl);
+  font-weight: 620;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+  text-wrap: balance;
 }
 
 .lede {
   margin: var(--s3) 0 0;
-  font-size: var(--t-sm);
-  line-height: 1.5;
-  color: var(--text-3);
+  font-size: var(--t-md);
+  color: var(--text-2);
   text-wrap: pretty;
 }
+/* A phrase that moves to the next line whole, and wraps only if it is wider than the line. */
 .lede span {
-  white-space: nowrap;
+  display: inline-block;
 }
 
-.wordmark {
-  font-size: var(--t-xl);
-  font-weight: 620;
-  letter-spacing: -0.022em;
-  margin: 0;
-  line-height: 1.15;
+.notice {
+  margin: var(--s4) 0 0;
+  padding: 10px var(--s3);
+  border-radius: var(--r-md);
+  background: var(--surface-sunken);
+  border: 1px solid var(--line-control);
+  font-size: var(--t-sm);
 }
 
-.source {
-  flex: none;
-  font-size: var(--t-micro);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.site-footer {
+  margin-top: var(--s9);
+  padding-top: var(--s5);
+  border-top: 1px solid var(--line);
+  font-size: var(--t-xs);
+  line-height: 1.6;
   color: var(--text-3);
-  font-weight: 560;
-  white-space: nowrap;
 }
-
-.picker {
-  padding: var(--s6) 0 0;
-}
-
-@media (max-width: 559px) {
-  .masthead {
-    flex-direction: column-reverse;
-    align-items: flex-start;
-    gap: var(--s2);
-  }
+.site-footer p {
+  margin: 0 0 var(--s2);
+  max-width: 62ch;
 }
 
 /* ── Steps ─────────────────────────────────────────────────────────────── */
@@ -243,13 +314,72 @@ code {
   }
 }
 
+/* Where the reader is in the form, as a number they can follow. */
+.step-num {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface-sunken);
+  color: var(--text-2);
+  font-size: var(--t-xs);
+  font-weight: 620;
+  font-variant-numeric: tabular-nums;
+}
+.step-num[data-done] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+/* A link or control at the far end of a heading row. */
+.step-link,
+.step-head > .segmented {
+  margin-left: auto;
+}
+
+.step-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--accent-fg);
+  font-size: var(--t-sm);
+  font-weight: 560;
+  text-underline-offset: 3px;
+}
+.step-link:hover {
+  text-decoration-thickness: 2px;
+}
+
+.step-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+}
+.step-actions .help {
+  margin: 0;
+}
+
 /* ── Fields ────────────────────────────────────────────────────────────── */
 
-.step > .field + .field,
-.step > .field + .row,
-.step > .row + .field,
-.step > .row + .row {
+/* One rhythm between everything in a step; the head sets its own gap. */
+.step > :not(:first-child) {
   margin-top: var(--s4);
+}
+.step > .help {
+  margin-top: var(--s3);
+}
+.step > .step-head + * {
+  margin-top: 0;
+}
+
+/* A label, its control and its help. Shrinks inside a .row rather than overflowing it. */
+.field {
+  min-width: 0;
 }
 
 .help {
@@ -260,6 +390,11 @@ code {
 .help[data-invalid="true"] {
   color: var(--danger);
   font-weight: 500;
+}
+
+/* Help that stands where a label would, above its control. */
+.help-top {
+  margin: 0 0 var(--s2);
 }
 
 .lbl {
@@ -292,20 +427,19 @@ code {
   border-radius: var(--r-md);
   color: var(--text);
   font: inherit;
-  /* 16px below 640px keeps iOS from zooming the viewport on focus. */
-  font-size: 1rem;
-  padding: 10px var(--s3);
+  /* Never below 16px: iOS zooms the viewport on focus otherwise. */
+  font-size: var(--t-md);
+  padding: var(--s2) var(--s3);
   min-height: 44px;
   box-shadow: var(--shadow-sm);
-  transition: border-color var(--dur-fast) var(--ease),
-    box-shadow var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+  transition: border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
 }
-@media (min-width: 640px) {
+/* Padding stays under the min-height so the control matches .btn at every width. */
+@media (min-width: 640px) and (pointer: fine) {
   .inp,
   .sel {
-    font-size: var(--t-md);
     min-height: 38px;
-    padding: 8px var(--s3);
+    padding-block: var(--s1);
   }
 }
 
@@ -313,17 +447,16 @@ code {
   color: var(--text-3);
 }
 
-.inp:hover:not(:disabled):not([readonly]),
-.sel:hover:not(:disabled),
-.combo:hover .inp:not(:disabled) {
+.inp:hover:not(:disabled, :focus-visible),
+.sel:hover:not(:disabled, :focus-visible),
+.combo:hover .inp:not(:disabled, :focus-visible) {
   border-color: var(--text-3);
 }
 
+/* The global ring stays; the border joins it. */
 .inp:focus-visible,
 .sel:focus-visible {
-  outline: none;
   border-color: var(--accent-fg);
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent-fg) 22%, transparent);
 }
 
 .inp:disabled,
@@ -366,12 +499,11 @@ code {
   color: var(--text-2);
   font: inherit;
   font-size: var(--t-base);
-  font-weight: 530;
-  padding: 7px var(--s2);
-  min-height: 34px;
+  font-weight: 500;
+  padding: var(--s1) var(--s2);
+  min-height: 38px;
   border-radius: var(--r-sm);
   cursor: pointer;
-  white-space: nowrap;
   transition: color var(--dur-fast) var(--ease),
     background-color var(--dur-fast) var(--ease);
 }
@@ -381,12 +513,13 @@ code {
   background: var(--surface-hover);
 }
 
+/* Told apart by a bordered thumb and weight as well as colour. */
 .segmented button[aria-checked="true"] {
   background: var(--surface);
   color: var(--accent-fg);
-  border-color: var(--line);
+  border-color: var(--line-control);
   box-shadow: var(--shadow-sm);
-  font-weight: 580;
+  font-weight: 560;
 }
 
 @media (max-width: 479px) {
@@ -394,15 +527,23 @@ code {
     grid-auto-flow: row;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .segmented button {
-    white-space: normal;
-  }
   /* An odd last segment spans the row rather than leaving a hole. */
   .segmented button:last-child:nth-child(odd) {
     grid-column: 1 / -1;
   }
 }
 
+/* The size that sits in a heading row. */
+.segmented-compact {
+  padding: 2px;
+}
+.segmented-compact button {
+  min-height: 32px;
+  padding: var(--s1) var(--s3);
+  font-size: var(--t-sm);
+}
+
+/* After the compact size, so it wins for both. */
 @media (pointer: coarse) {
   .segmented button {
     min-height: 44px;
@@ -422,11 +563,10 @@ code {
   translate: 0 -50%;
   pointer-events: none;
   color: var(--text-3);
-  transition: rotate var(--dur) var(--ease), color var(--dur-fast) var(--ease);
+  transition: rotate var(--dur) var(--ease);
 }
 .combo[data-open="true"] .combo-chevron {
   rotate: 180deg;
-  color: var(--accent-fg);
 }
 .combo .inp {
   padding-right: var(--s8);
@@ -456,16 +596,22 @@ code {
   }
 }
 
+/* Inline padding puts option text on the same line as the input's text above it. */
 .combo-opt {
   display: flex;
   align-items: center;
   gap: var(--s2);
-  padding: 9px var(--s2) 9px 10px;
+  padding: var(--s2);
   border-radius: var(--r-sm);
   cursor: pointer;
   font-size: var(--t-base);
   color: var(--text);
   scroll-margin: var(--s1);
+}
+@media (pointer: coarse) {
+  .combo-opt {
+    min-height: 44px;
+  }
 }
 
 .combo-opt-label {
@@ -482,6 +628,7 @@ code {
 }
 .combo-opt[aria-selected="true"]::after {
   content: "";
+  flex: none;
   margin-left: auto;
   width: 6px;
   height: 10px;
@@ -495,19 +642,33 @@ code {
 .combo-opt mark {
   background: transparent;
   color: inherit;
-  font-weight: 640;
+  font-weight: 620;
 }
 
 .combo-empty {
   margin: 0;
-  padding: var(--s3) 10px;
+  padding: var(--s3) var(--s2);
   color: var(--text-3);
   font-size: var(--t-sm);
 }
 
+.combo-group {
+  margin: 0;
+  padding: var(--s2) var(--s2) var(--s1);
+  font-size: var(--t-micro);
+  font-weight: 560;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.combo-list [role="group"] + [role="group"] .combo-group {
+  margin-top: var(--s1);
+  border-top: 1px solid var(--line);
+}
+
 .combo-more {
   margin: var(--s1) 0 0;
-  padding: var(--s2) 10px var(--s1);
+  padding: var(--s2) var(--s2) var(--s1);
   color: var(--text-3);
   font-size: var(--t-xs);
   border-top: 1px solid var(--line);
@@ -535,7 +696,7 @@ code {
     border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease),
     transform var(--dur-fast) var(--ease);
 }
-@media (min-width: 640px) {
+@media (min-width: 640px) and (pointer: fine) {
   .btn {
     min-height: 38px;
   }
@@ -547,13 +708,22 @@ code {
 
 .btn:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
+}
+/* Disabled is neutral, never a faded accent. A busy button keeps its fill. */
+.btn:disabled:not([aria-busy="true"]) {
+  background: var(--surface-sunken);
+  color: var(--text-3);
+  border-color: var(--line);
+  box-shadow: none;
+}
+.btn[aria-busy="true"] {
+  cursor: progress;
 }
 
 .btn-primary {
   background: var(--accent);
   color: var(--on-accent);
-  font-weight: 600;
+  font-weight: 620;
   box-shadow: var(--shadow-sm);
 }
 .btn-primary:hover:not(:disabled) {
@@ -570,7 +740,27 @@ code {
   background: var(--surface-hover);
 }
 
-/* Search sits flush against its input. */
+.btn-sm {
+  min-height: 36px;
+  padding: 0 var(--s3);
+  font-size: var(--t-sm);
+}
+@media (pointer: coarse) {
+  .btn-sm {
+    min-height: 44px;
+  }
+}
+
+.btn-danger {
+  background: var(--surface);
+  color: var(--danger);
+  border-color: var(--danger-line);
+}
+.btn-danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+}
+
+/* The search button beside its input; a fixed minimum so "Searching" does not resize it. */
 .search-group {
   display: flex;
   gap: var(--s2);
@@ -583,32 +773,14 @@ code {
   min-width: 112px;
 }
 
-/* ── Action bar ────────────────────────────────────────────────────────── */
-
-.actions {
-  margin-top: var(--s6);
-}
-
-@media (max-width: 639px) {
-  .actions {
-    position: sticky;
-    bottom: 0;
-    z-index: 20;
-    margin: var(--s6) calc(var(--s5) * -1) 0;
-    padding: var(--s3) var(--s5) calc(var(--s3) + env(safe-area-inset-bottom));
-    background: color-mix(in oklch, var(--bg) 88%, transparent);
-    backdrop-filter: blur(8px);
-    border-top: 1px solid var(--line);
-  }
-}
-
 /* ── Feedback ──────────────────────────────────────────────────────────── */
 
 .alert {
   display: flex;
+  flex-wrap: wrap;
   margin: var(--s4) 0 0;
-  gap: var(--s2);
-  align-items: flex-start;
+  gap: var(--s2) var(--s3);
+  align-items: center;
   background: var(--danger-soft);
   border: 1px solid var(--danger-line);
   color: var(--text);
@@ -617,13 +789,99 @@ code {
   font-size: var(--t-sm);
 }
 
+.alert-text {
+  flex: 1 1 16rem;
+  margin: 0;
+}
+
+/* Waiting, said in words — see components/Status.tsx. */
+.loading {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+  font-size: var(--t-sm);
+  color: var(--text-2);
+}
+.loading > .spinner {
+  margin-top: 3px;
+}
+.loading-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.loading-note {
+  font-size: var(--t-xs);
+  color: var(--text-3);
+}
+.loading-sm {
+  font-size: var(--t-xs);
+}
+.loading-lg {
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s4);
+  text-align: center;
+  font-size: var(--t-md);
+  color: var(--text);
+}
+.loading-lg > .spinner {
+  width: 28px;
+  height: 28px;
+  border-width: 2.5px;
+  margin: 0;
+}
+.loading-lg .loading-text {
+  align-items: center;
+}
+.loading-lg .loading-note {
+  max-width: 30rem;
+  font-size: var(--t-sm);
+}
+
+/* Pinned by both edges and centred by auto margins: `left: 50%` alone would
+   cap the shrink-to-fit width at half the viewport. */
+.toast {
+  position: fixed;
+  z-index: 50;
+  left: var(--s5);
+  right: var(--s5);
+  bottom: calc(var(--s5) + env(safe-area-inset-bottom));
+  width: fit-content;
+  margin-inline: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s2) var(--s2) var(--s2) var(--s4);
+  border-radius: var(--r-lg);
+  background: var(--text);
+  color: var(--bg);
+  box-shadow: var(--shadow-pop);
+  font-size: var(--t-sm);
+  animation: pop var(--dur) var(--ease);
+}
+.toast .btn {
+  background: transparent;
+  color: inherit;
+  border-color: color-mix(in oklch, var(--bg) 40%, transparent);
+  box-shadow: none;
+}
+.toast .btn:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--bg) 14%, transparent);
+}
+.toast :focus-visible {
+  outline-color: var(--bg);
+}
+
+/* Neutral: a count is not a mark the user made, so it does not get the accent. */
 .count {
   display: inline-block;
   font-size: var(--t-xs);
   font-weight: 560;
-  color: var(--accent-fg);
-  background: var(--accent-soft);
-  padding: 1px 7px;
+  color: var(--text-2);
+  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+  padding: 0 6px;
   border-radius: 999px;
   margin-left: var(--s1);
   vertical-align: 1px;
@@ -661,11 +919,32 @@ code {
   border: 1px solid var(--line);
   animation: sheen 1.4s ease-in-out infinite;
 }
-@media (min-width: 640px) {
+@media (min-width: 640px) and (pointer: fine) {
   .skeleton {
     height: 38px;
   }
 }
+.skeleton-rows {
+  display: grid;
+  gap: var(--s2);
+  margin-top: var(--s3);
+}
+.skeleton-row {
+  height: 52px;
+}
+/* A word still on its way, inside a line of text. */
+.skeleton-text {
+  display: inline-block;
+  width: 8ch;
+  height: 1em;
+  vertical-align: -0.1em;
+  border: 0;
+  border-radius: var(--r-sm);
+}
+.skeleton-wide {
+  width: 18ch;
+}
+
 @keyframes sheen {
   from {
     background-position: 130% 0;
@@ -691,7 +970,6 @@ code {
 
 .record {
   margin-top: var(--s9);
-  scroll-margin-top: var(--s5);
 }
 
 .record-bar {
@@ -703,7 +981,8 @@ code {
   flex-wrap: wrap;
 }
 
-.record-bar h2 {
+.record-bar h2,
+.relation-title {
   font-size: var(--t-lg);
   font-weight: 560;
   letter-spacing: -0.011em;
@@ -723,12 +1002,22 @@ code {
   gap: var(--s2);
 }
 
-.step > .record-actions {
-  margin-top: var(--s4);
+/* A select in the row of buttons: their height and type size, not a field's.
+   `.sel` keeps 16px below 640px, or iOS zooms in on tap. */
+.sel-inline {
+  width: auto;
+  padding-block: 0;
+}
+@media (min-width: 640px) {
+  .sel-inline {
+    font-size: var(--t-base);
+  }
 }
 
-/* The document is a scan of paper. It stays paper in either theme. */
+/* The document is a scan of paper. It stays paper in either theme — the
+   iframe's page included, which otherwise gets an opaque canvas in dark mode. */
 .record-frame {
+  color-scheme: light;
   background: var(--paper);
   border: 1px solid var(--line-control);
   border-radius: var(--r-lg);
@@ -775,8 +1064,7 @@ code {
 
 .saved-list,
 .results-list,
-.history-list,
-.palette-list {
+.relation-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -784,7 +1072,7 @@ code {
 
 .saved-row {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: baseline;
   gap: 2px var(--s3);
   padding: 10px var(--s3);
@@ -793,7 +1081,7 @@ code {
   color: inherit;
   text-decoration: none;
   min-height: 44px;
-  transition: background var(--dur-fast) var(--ease);
+  transition: background-color var(--dur-fast) var(--ease);
 }
 
 .saved-row:hover {
@@ -812,6 +1100,12 @@ code {
   color: var(--text-3);
 }
 
+/* A survey number or a run of holders' names can be one long unbroken string. */
+.saved-row-title,
+.saved-row-path {
+  overflow-wrap: anywhere;
+}
+
 .saved-row-type {
   grid-row: 1 / span 2;
   grid-column: 2;
@@ -821,35 +1115,164 @@ code {
   color: var(--text-2);
   background: var(--surface-sunken);
   border-radius: 999px;
-  padding: 2px 9px;
+  padding: 2px var(--s2);
   white-space: nowrap;
 }
 
-.saved-edit {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  padding: var(--s1) 0;
-  flex-wrap: wrap;
+.saved .step-actions {
+  margin-top: var(--s5);
 }
 
-.saved-edit .inp {
+.saved-bar {
+  display: flex;
+  gap: var(--s2);
+  margin-bottom: var(--s3);
+}
+.saved-bar .inp {
+  flex: 1;
+}
+
+.saved-select {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+  padding-bottom: var(--s3);
+  margin-bottom: var(--s2);
+  border-bottom: 1px solid var(--line);
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: 44px;
+  margin-right: auto;
+  font-size: var(--t-sm);
+  font-weight: 560;
+  cursor: pointer;
+}
+/* Three buttons beside the check do not fit a phone: the last one would wrap
+   alone. The check takes its own line and the buttons stay together. */
+@media (max-width: 559px) {
+  .saved-select .check {
+    flex-basis: 100%;
+  }
+}
+
+input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  flex: none;
+  accent-color: var(--accent);
+}
+
+.saved-group + .saved-group {
+  margin-top: var(--s4);
+}
+
+.saved-group-title {
+  margin: 0 0 var(--s1);
+  font-size: var(--t-xs);
+  font-weight: 560;
+  color: var(--text-3);
+}
+
+/* Inset like .saved-row, so text lines up with the read-only list. */
+.saved-edit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+  padding: var(--s3);
+  margin-inline: calc(var(--s3) * -1);
+  border-bottom: 1px solid var(--line);
+}
+/* Tint and the ticked box together, never the tint alone. */
+.saved-edit[data-selected] {
+  background: var(--accent-soft);
+}
+
+/* A 44px target around the 20px box, pulled left so the box sits on the
+   content edge. */
+.saved-edit-check {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin-left: calc(var(--s3) * -1);
+  cursor: pointer;
+}
+
+.saved-edit-main {
   flex: 1 1 200px;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
 }
 
 .saved-edit-actions {
   display: flex;
-  gap: var(--s1);
+  gap: var(--s2);
+  margin-left: auto;
+}
+/* The arrow buttons are a glyph wide; a finger needs the full 44px. */
+@media (pointer: coarse) {
+  .saved-edit-actions .btn {
+    min-width: 44px;
+  }
 }
 
-.saved-tools {
-  padding-top: var(--s3);
+.empty {
+  padding: var(--s7) 0;
+}
+.empty p {
+  margin: 0 0 var(--s4);
+  max-width: 46ch;
+  color: var(--text-2);
+}
+
+.device {
+  padding-top: var(--s7);
+}
+
+.device-list {
+  list-style: none;
+  margin: var(--s3) 0 0;
+  padding: 0;
+}
+
+.device-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px var(--s3);
+  padding: var(--s3) 0;
   border-top: 1px solid var(--line);
-  margin-top: var(--s3);
+}
+.device-item h3 {
+  margin: 0;
+  font-size: var(--t-base);
+  font-weight: 560;
+}
+.device-item p {
+  grid-column: 1;
+  margin: 0;
+  font-size: var(--t-sm);
+  color: var(--text-2);
+}
+.device-item .btn {
+  grid-column: 2;
+  grid-row: 1 / span 2;
 }
 
-.saved-tools .help {
-  margin-top: var(--s2);
+.mono {
+  font-weight: 560;
+  color: var(--text);
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
 }
 
 .shared {
@@ -857,8 +1280,10 @@ code {
   border-bottom: 1px solid var(--line);
 }
 
-.shared .record-actions {
-  margin-top: var(--s3);
+.shared-names {
+  margin: var(--s2) 0 var(--s4);
+  font-size: var(--t-sm);
+  color: var(--text-2);
 }
 
 /* ── Command palette ───────────────────────────────────────────────────── */
@@ -871,11 +1296,16 @@ code {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: max(10vh, var(--s7)) var(--s5) var(--s5);
+  padding: max(10dvh, var(--s7)) var(--s5) var(--s5);
 }
 
+/* A column capped at the backdrop's height, so the list — not the page —
+   gives way when the viewport is short. */
 .palette {
+  display: flex;
+  flex-direction: column;
   width: min(560px, 100%);
+  max-height: 100%;
   background: var(--surface);
   border: 1px solid var(--line-control);
   border-radius: var(--r-lg);
@@ -893,7 +1323,10 @@ code {
   font: inherit;
   font-size: var(--t-md);
   padding: var(--s4);
-  outline: none;
+}
+/* The usual ring, drawn inside: .palette clips anything outside it. */
+.palette-input:focus-visible {
+  outline-offset: -2px;
 }
 
 .palette-input::placeholder {
@@ -901,18 +1334,26 @@ code {
 }
 
 .palette-list {
-  max-height: min(360px, 50vh);
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 360px;
   overflow-y: auto;
   overscroll-behavior: contain;
+  list-style: none;
+  margin: 0;
   padding: var(--s1);
 }
+.palette-list:empty {
+  padding: 0;
+}
 
+/* Inset s1 + s3, so titles line up with the input's text above. */
 .palette-opt {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 1px var(--s3);
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px var(--s3);
   align-items: baseline;
-  padding: 9px 10px;
+  padding: var(--s2) var(--s3);
   border-radius: var(--r-sm);
   cursor: pointer;
   scroll-margin: var(--s1);
@@ -933,6 +1374,11 @@ code {
   color: var(--text-3);
 }
 
+.palette-opt-title,
+.palette-opt-path {
+  overflow-wrap: anywhere;
+}
+
 .palette-opt-type {
   grid-row: 1 / span 2;
   grid-column: 2;
@@ -943,23 +1389,29 @@ code {
 
 /* ── Document view ─────────────────────────────────────────────────────── */
 
-a.wordmark,
-a.source {
-  color: inherit;
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  margin-top: var(--s2);
+  color: var(--accent-fg);
+  font-size: var(--t-sm);
+  font-weight: 560;
   text-decoration: none;
 }
-
-a.source:hover {
-  color: var(--accent-fg);
+.back:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .doc-head {
-  padding: var(--s6) 0 0;
+  padding-top: var(--s1);
 }
 
 .doc-title {
-  font-size: var(--t-lg);
-  font-weight: 560;
+  font-size: var(--t-xl);
+  font-weight: 620;
   letter-spacing: -0.011em;
   margin: 0;
   line-height: 1.25;
@@ -974,37 +1426,34 @@ a.source:hover {
 /* ── One global loader ─────────────────────────────────────────────────────
  *
  * A URL that names a record has nothing to fill in, so while the portal
- * answers there is one mark on the screen and no form pretending to be busy.
- * The mobile field, on a device that has never given one, sits in the same
- * slot for the same reason. */
+ * answers there is one loader on the screen and no form pretending to be busy.
+ * Error and not-found screens use the same slot. */
 
 .gate {
   display: grid;
   place-items: center;
+  align-content: center;
   gap: var(--s4);
   min-height: 46vh;
   padding: var(--s7) 0;
+  text-align: center;
 }
 
-.gate > .field {
+.gate > .alert {
   width: 100%;
-  max-width: 22rem;
+  max-width: 34rem;
+  margin: 0;
+  text-align: left;
 }
 
-.spinner-lg {
-  width: 26px;
-  height: 26px;
-  border-width: 2.5px;
-  color: var(--text-3);
+.gate > .lede {
+  max-width: 34rem;
+  margin: 0;
 }
 
 /* ── Search results ────────────────────────────────────────────────────────
  *
  * A row is a link to the document, not a value to select and then submit. */
-
-.results {
-  margin-top: var(--s5);
-}
 
 .results-head .lbl {
   margin: 0;
@@ -1019,18 +1468,23 @@ a.source:hover {
   border-bottom: 1px solid var(--line);
 }
 
-.results-list > li {
+/* Shared with the relation lists below: a row, then its own Save. */
+.results-list > li,
+.relation-list > li {
   display: flex;
   align-items: center;
   gap: var(--s2);
   border-bottom: 1px solid var(--line);
 }
 
-.results-list > li:last-child {
+.results-list > li:last-child,
+.relation-list > li:last-child {
   border-bottom: 0;
 }
 
-.results-row {
+/* Pulled left so the text sits on the column edge and the hover fill hangs out. */
+.results-row,
+.relation-row {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -1043,10 +1497,12 @@ a.source:hover {
   text-decoration: none;
   font-size: var(--t-base);
   font-weight: 560;
-  transition: background var(--dur-fast) var(--ease);
+  transition: background-color var(--dur-fast) var(--ease);
 }
 
-.results-row:hover {
+/* Links only: PlotCard also sets a plain, untappable row in this shape. */
+.results-row[href]:hover,
+.relation-row:hover {
   background: var(--surface-hover);
 }
 
@@ -1058,7 +1514,7 @@ a.source:hover {
 
 .results-meta {
   font-size: var(--t-xs);
-  font-weight: 450;
+  font-weight: 400;
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
 }
@@ -1076,14 +1532,23 @@ a.source:hover {
 
 .relation-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--s3);
+  gap: var(--s2) var(--s3);
   margin-bottom: var(--s3);
 }
 
-.relation-head .lbl {
-  margin: 0;
+.relation-row {
+  justify-content: space-between;
+  gap: var(--s3);
+  font-variant-numeric: tabular-nums;
+}
+
+.relation-go {
+  color: var(--accent-fg);
+  font-size: var(--t-sm);
+  white-space: nowrap;
 }
 
 .chips {
@@ -1098,9 +1563,9 @@ a.source:hover {
 .chip {
   display: inline-flex;
   align-items: center;
-  min-height: 34px;
+  min-height: 36px;
   padding: 0 var(--s3);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-control);
   border-radius: 999px;
   background: var(--surface);
   color: var(--text);
@@ -1109,109 +1574,18 @@ a.source:hover {
   font-weight: 560;
   font-variant-numeric: tabular-nums;
   transition: border-color var(--dur-fast) var(--ease),
-    background var(--dur-fast) var(--ease);
+    background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+@media (pointer: coarse) {
+  .chip {
+    min-height: 44px;
+  }
 }
 
 .chip:hover {
   border-color: var(--accent-fg);
   background: var(--accent-soft);
   color: var(--accent-fg);
-}
-
-/* A select sitting in a row of buttons rather than under a label. */
-.sel-inline {
-  width: auto;
-  min-height: 34px;
-  padding-block: 0;
-}
-/* Below 640px the inherited 16px stays, or iOS zooms in on tap. */
-@media (min-width: 640px) {
-  .sel-inline {
-    font-size: var(--t-sm);
-  }
-}
-
-.shared-names {
-  margin: var(--s2) 0 var(--s4);
-  font-size: var(--t-sm);
-  color: var(--text-2);
-}
-
-/* ── History ───────────────────────────────────────────────────────────── */
-
-.history {
-  margin-top: var(--s7);
-}
-
-.history > summary {
-  cursor: pointer;
-  font-size: var(--t-sm);
-  font-weight: 560;
-  color: var(--text-2);
-  padding: var(--s2) 0;
-  list-style-position: inside;
-}
-
-.history-row {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1px;
-  width: 100%;
-  min-height: 44px;
-  padding: var(--s2) var(--s3);
-  margin-inline: calc(var(--s3) * -1);
-  border: 0;
-  border-radius: var(--r-md);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease);
-}
-
-.history-row:hover {
-  background: var(--surface-hover);
-}
-
-.history-row[aria-current] {
-  background: var(--accent-soft);
-  color: var(--accent-fg);
-}
-
-.history-date {
-  font-size: var(--t-base);
-  font-weight: 560;
-  font-variant-numeric: tabular-nums;
-}
-
-.history-note {
-  font-size: var(--t-sm);
-  color: var(--text-3);
-}
-
-.history-row[aria-current] .history-note {
-  color: inherit;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 1ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 1ms !important;
-    scroll-behavior: auto !important;
-  }
-  .skeleton {
-    background: var(--surface-sunken);
-  }
-}
-
-.gate > .help {
-  text-align: center;
-  max-width: 28rem;
 }
 
 /* ── Map ───────────────────────────────────────────────────────────────────
@@ -1242,17 +1616,15 @@ a.source:hover {
 }
 
 .map-canvas {
-  display: block;
   width: 100%;
   height: min(64vh, 480px);
+  /* MapLibre's controls and gesture overlay carry their own z-indexes; keep
+     them under the page's toasts and popovers. */
+  isolation: isolate;
 }
 
+/* The frame is the boundary. */
 .map-canvas.skeleton {
-  border-radius: var(--r-lg);
-}
-
-/* Inside the frame, the frame is the boundary. */
-.map-frame .map-canvas.skeleton {
   border: 0;
   border-radius: 0;
 }
@@ -1265,9 +1637,35 @@ a.source:hover {
   }
 }
 
+/* Wraps under itself rather than pushing the heading row off a narrow phone. */
 .relation-actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: var(--s2);
+}
+
+/* MapLibre's controls, on both maps: a finger-sized target, and the one focus
+   ring — in the map's ink, which reads on imagery. MapLibre swaps the ring for
+   a glow of its own, hence the weight of these selectors. */
+@media (pointer: coarse) {
+  .maplibregl-map .maplibregl-ctrl-group button {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+.maplibregl-map :focus-visible {
+  outline-color: #84a9f7;
+}
+.maplibregl-map :is(.maplibregl-ctrl-group button, .maplibregl-ctrl-attrib-button):focus:focus-visible {
+  outline: 2px solid #84a9f7;
+  outline-offset: 2px;
+  box-shadow: none;
+}
+/* The canvas fills a clipped box, so its ring is drawn inside it. */
+.maplibregl-canvas:focus-visible {
+  outline-offset: -2px;
 }
 
 /* ── Map explorer ──────────────────────────────────────────────────────────
@@ -1277,17 +1675,6 @@ a.source:hover {
  * panel scrolls under it; above, the panel is a column beside it. Anything
  * drawn on the map is, like the map, not themed. */
 
-.masthead-end {
-  display: flex;
-  align-items: center;
-  gap: var(--s3);
-}
-
-.wordmark-link {
-  color: inherit;
-  text-decoration: none;
-}
-
 .explore {
   display: grid;
   grid-template-areas: "map" "panel";
@@ -1295,18 +1682,24 @@ a.source:hover {
   min-height: 100dvh;
 }
 
+/* Under the map, the panel is the same 640px column as every other screen. */
 .explore-panel {
   grid-area: panel;
+  justify-self: center;
+  width: 100%;
+  max-width: 640px;
   min-width: 0;
   padding: var(--s6) var(--s5) var(--s10);
 }
 
+/* svh, not dvh: the toolbar that iOS hides on scroll must not resize a map
+   that stays on screen while the page scrolls. */
 .explore-map {
   grid-area: map;
   position: sticky;
   top: 0;
   z-index: 10;
-  height: 56dvh;
+  height: 56svh;
   background: var(--surface-sunken);
 }
 
@@ -1316,14 +1709,14 @@ a.source:hover {
 }
 
 .explore-canvas.skeleton {
-  height: 100%;
   border: 0;
   border-radius: 0;
 }
 
 /* Under the sticky map, "in view" means below it. */
 .explore-card {
-  scroll-margin-top: calc(56dvh + var(--s4));
+  padding-top: var(--s6);
+  scroll-margin-top: calc(56svh + var(--s4));
 }
 
 @media (min-width: 900px) {
@@ -1341,12 +1734,17 @@ a.source:hover {
     position: relative;
     height: 100dvh;
   }
+  /* The panel is phone-narrow here too, so the place reads under the title. */
+  .explore-panel .step-note {
+    width: 100%;
+    margin: 0;
+    text-align: left;
+  }
 }
 
 .explore-intro {
-  margin-top: var(--s5);
+  margin: 0;
   font-size: var(--t-sm);
-  line-height: 1.5;
 }
 
 /* What a tap will do, or what it is doing. Reports state; takes no taps. */
@@ -1357,13 +1755,16 @@ a.source:hover {
   z-index: 2;
   max-width: min(36ch, calc(100% - 72px));
   margin: 0;
-  padding: 6px 10px;
+  padding: var(--s2) var(--s3);
   border-radius: var(--r-md);
   background: oklch(0.235 0.012 75 / 0.82);
   color: oklch(0.99 0.003 75);
   font-size: var(--t-sm);
   line-height: 1.4;
   pointer-events: none;
+}
+.map-hint:empty {
+  display: none;
 }
 
 .map-label {
@@ -1378,15 +1779,20 @@ a.source:hover {
   white-space: nowrap;
   cursor: pointer;
   box-shadow: 0 1px 3px oklch(0.235 0.012 75 / 0.3);
+}
+/* Outranks MapLibre's own marker transition, which loads after this file. */
+.map-label.maplibregl-marker {
   transition: opacity var(--dur) var(--ease), visibility var(--dur) var(--ease),
     background-color var(--dur-fast) var(--ease);
 }
 .map-label:hover {
   background: oklch(0.99 0.003 75);
 }
+/* The chosen village: register blue, and heavier, so it is not colour alone. */
 .map-label[aria-current] {
-  background: oklch(0.475 0.145 264);
-  color: oklch(0.99 0.005 264);
+  background: oklch(0.47 0.16 256);
+  color: oklch(0.99 0.005 256);
+  font-weight: 620;
 }
 @media (pointer: coarse) {
   .map-label {
@@ -1418,11 +1824,7 @@ a.source:hover {
   }
 }
 
-/* ── Picked plot ─────────────────────────────────────────────────────────── */
-
-.plot {
-  padding-top: var(--s6);
-}
+/* ── Picked plot ───────────────────────────────────────────────────────── */
 
 .plot-head {
   display: flex;
@@ -1436,11 +1838,6 @@ a.source:hover {
 }
 
 .plot-title {
-  margin: 0;
-  font-size: var(--t-lg);
-  font-weight: 560;
-  letter-spacing: -0.011em;
-  line-height: 1.25;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1456,7 +1853,7 @@ a.source:hover {
   width: 44px;
   padding: 0;
 }
-@media (min-width: 640px) {
+@media (min-width: 640px) and (pointer: fine) {
   .plot-close {
     width: 38px;
   }
@@ -1490,7 +1887,7 @@ a.source:hover {
 
 .plot-survey-number {
   font-size: var(--t-md);
-  font-weight: 600;
+  font-weight: 560;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1499,8 +1896,28 @@ a.source:hover {
   gap: var(--s2);
 }
 
+/* A holding with no khata has no 8A to open, so it takes no hover. */
+.plot-survey span.results-row:hover {
+  background: none;
+}
+
 .plot-skeleton {
   display: grid;
   gap: var(--s3);
-  padding-top: var(--s6);
+}
+
+/* ── Reduced motion ────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+  .skeleton {
+    background: var(--surface-sunken);
+  }
 }

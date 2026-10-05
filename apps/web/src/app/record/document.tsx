@@ -4,16 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useQueryStates } from "nuqs";
 import { parseEightA, type Option, type RecordDocument } from "@bhumi/core";
-import { api, type Locator } from "@/lib/client";
+import { api, canRetry, errorMessage, type Locator } from "@/lib/client";
 import { lookupFrom, lookupKey, searchHref, searchParams } from "@/lib/search-params";
-import {
-  MOBILE,
-  readMobile,
-  recordInput,
-  resolveLanguage,
-  resolveSearchType,
-  saveMobile,
-} from "@/lib/record-request";
+import { deviceMobile, recordInput, resolveLanguage, resolveSearchType } from "@/lib/record-request";
 import { useResource, dataOf } from "@/lib/resource";
 import {
   collection,
@@ -22,56 +15,64 @@ import {
   subjectFromLookup,
   titleOf,
   useEntry,
+  type Draft,
   type Place,
 } from "@/lib/collection";
-import {
-  forgetHistory,
-  historyFor,
-  recordSnapshot,
-  type Snapshot,
-  type SnapshotStatus,
-} from "@/lib/snapshots";
+import { copyOf, keepCopy } from "@/lib/copies";
 import type { TreeSnapshot } from "@/lib/tree";
-import {
-  RecordView,
-  viewableFromDocument,
-  viewableFromSnapshot,
-  type Viewable,
-} from "@/components/RecordView";
+import { RecordView, viewableFromCopy, viewableFromDocument, type Viewable } from "@/components/RecordView";
 import { SaveControl } from "@/components/SaveControl";
 import { HeldBy, Holdings } from "@/components/Relations";
 import { ParcelMap } from "@/components/ParcelMap";
+import { Masthead, OfflineNotice, SiteFooter } from "@/components/Chrome";
+import { Failure, Loading, PORTAL_STAGES } from "@/components/Status";
 
-const msg = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong");
+const when = (iso: string) =>
+  new Date(iso).toLocaleString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 
-const day = (iso: string) =>
-  new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+/** Something that belongs to one record, tagged with which. */
+type For<T> = { key: string; value: T };
+
+/** The device's copy, read back for display. */
+interface Kept {
+  key: string;
+  view: Viewable;
+  savedAt: string;
+}
 
 /**
  * The document.
  *
  * A URL that names a record opens *as* that record: there is no form here and
- * nothing to fill in, so while the portal is answering there is one loader and
- * nothing else. Anything this device already holds paints first, which for a
- * kept subject means the record is on screen before the network is consulted at
- * all — including with no signal, which is the situation this app's reader is
- * usually in.
+ * nothing to fill in. Whatever this device kept from the last visit paints
+ * first — with no signal at all, if need be — while the live copy is fetched
+ * behind it and then kept in its place.
  */
 export function DocumentScreen({ initial }: { initial: TreeSnapshot }) {
   const [sp, setSp] = useQueryStates(searchParams);
   const { type, district, taluka, village, mode, st, q, parcel, sankalan, purpose, duration } = sp;
 
   // Rebuilt only when a field that identifies the document changes, so it is a
-  // safe dependency for the fetch effect below.
+  // safe dependency for the fetch below.
   const lookup = useMemo(
     () => lookupFrom(sp),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [type, district, taluka, village, mode, st, q, parcel, sankalan, purpose, duration],
   );
   const key = lookup ? lookupKey(lookup) : null;
-  const loc: Locator | null = lookup
-    ? { recordType: lookup.type, district: lookup.district, taluka: lookup.taluka, village: lookup.village }
-    : null;
+  const loc = useMemo<Locator | null>(
+    () =>
+      lookup
+        ? { recordType: lookup.type, district: lookup.district, taluka: lookup.taluka, village: lookup.village }
+        : null,
+    [lookup],
+  );
 
   /**
    * The village behind the codes. Whatever the server had cached paints first;
@@ -79,11 +80,7 @@ export function DocumentScreen({ initial }: { initial: TreeSnapshot }) {
    * codes. A kept subject carries its own names, which is what lets this page
    * read correctly with no network at all.
    */
-  const districtsRes = useResource(
-    lookup ? `d|${lookup.type}` : null,
-    () => api.districts(lookup!.type),
-    initial.districts,
-  );
+  const districtsRes = useResource(lookup ? `d|${lookup.type}` : null, () => api.districts(lookup!.type), initial.districts);
   const talukasRes = useResource(
     lookup ? `t|${lookup.type}|${lookup.district}` : null,
     () => api.talukas(lookup!.type, lookup!.district),
@@ -94,6 +91,9 @@ export function DocumentScreen({ initial }: { initial: TreeSnapshot }) {
     () => api.villages(lookup!.type, lookup!.district, lookup!.taluka),
     initial.villages,
   );
+  const districts = dataOf(districtsRes);
+  const talukas = dataOf(talukasRes);
+  const villages = dataOf(villagesRes);
   const fromTree = useMemo<Place | null>(
     () =>
       lookup
@@ -101,16 +101,16 @@ export function DocumentScreen({ initial }: { initial: TreeSnapshot }) {
             district: lookup.district,
             taluka: lookup.taluka,
             village: lookup.village,
-            districtName: labelOf(dataOf(districtsRes), lookup.district) ?? lookup.district,
-            talukaName: labelOf(dataOf(talukasRes), lookup.taluka) ?? lookup.taluka,
-            villageName: labelOf(dataOf(villagesRes), lookup.village) ?? lookup.village,
+            districtName: labelOf(districts, lookup.district) ?? lookup.district,
+            talukaName: labelOf(talukas, lookup.taluka) ?? lookup.taluka,
+            villageName: labelOf(villages, lookup.village) ?? lookup.village,
           }
         : null,
-    [lookup, districtsRes, talukasRes, villagesRes],
+    [lookup, districts, talukas, villages],
   );
 
   // The subject this document is about. Its id needs only the village *codes*,
-  // so it is known before any names are resolved — no circularity with `entry`.
+  // so it is known before any names are resolved.
   const draft = fromTree && lookup ? subjectFromLookup(fromTree, lookup) : null;
   const entry = useEntry(draft ? entryId(draft.place, draft.kind, draft.code) : null);
   // An entry saved before its village's names had loaded holds codes in their
@@ -128,57 +128,57 @@ export function DocumentScreen({ initial }: { initial: TreeSnapshot }) {
   );
   const ctx = dataOf(contextRes) ?? null;
 
-  // --- Sources: the copy on this device, and the live one --------------------
-
-  const [history, setHistory] = useState<Snapshot[]>([]);
-  const [live, setLive] = useState<RecordDocument | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [fetching, setFetching] = useState(false);
-  /** How the last fetch compared with what this device already held. */
-  const [status, setStatus] = useState<SnapshotStatus | null>(null);
-  /** A history entry the user chose to look at instead of the current record. */
-  const [pinned, setPinned] = useState<Snapshot | null>(null);
+  /** Read on the client only: it lives in localStorage. */
   const [mobile, setMobile] = useState<string | null>(null);
+  useEffect(() => setMobile(deviceMobile()), []);
 
-  useEffect(() => setMobile(readMobile()), []);
+  const [kept, setKept] = useState<Kept | null>(null);
+  const [fetched, setFetched] = useState<For<RecordDocument> | null>(null);
+  // Apart from the document, so a failed refresh leaves the last good one up.
+  const [failed, setFailed] = useState<For<{ message: string; retryable: boolean }> | null>(null);
+  const [fetching, setFetching] = useState<string | null>(null);
+
+  // The record on screen changes with the URL; a fetch for the previous one
+  // may still land, so everything below is tagged with its key and read back
+  // only when it matches.
+  const current = useRef(key);
+  current.current = key;
 
   useEffect(() => {
-    setLive(null);
-    setError(null);
-    setStatus(null);
-    setPinned(null);
-    setHistory([]);
     if (!key) return;
     let alive = true;
-    void historyFor(key).then((rows) => alive && setHistory(rows));
+    void copyOf(key)
+      .then((copy) => copy && viewableFromCopy(copy).then((view) => ({ view, savedAt: copy.savedAt })))
+      .then((found) => alive && found && setKept({ key, ...found }));
     return () => {
       alive = false;
     };
   }, [key]);
 
-  const searchType = resolveSearchType(ctx, lookup);
   const language = resolveLanguage(ctx, sp.lang);
-  const canFetch = !!recordInput(lookup, language, mobile ?? "", searchType);
+  const canFetch = !!recordInput(lookup, language, mobile ?? "", resolveSearchType(ctx, lookup));
 
   const fetchNow = useCallback(
     async (lang?: string) => {
-      const chosen = resolveLanguage(ctx, lang ?? sp.lang);
-      const input = recordInput(lookup, chosen, mobile ?? "", resolveSearchType(ctx, lookup));
+      const input = recordInput(
+        lookup,
+        resolveLanguage(ctx, lang ?? sp.lang),
+        mobile ?? "",
+        resolveSearchType(ctx, lookup),
+      );
       if (!loc || !key || !input) return;
-      setFetching(true);
-      setError(null);
+      setFetching(key);
       try {
-        const document = await api.record(loc, sp.mode, input);
-        setLive(document);
-        setPinned(null);
-        // The store, not this component, decides what the fetch amounted to —
-        // it is the only thing that has seen the previous bytes.
-        setStatus((await recordSnapshot(key, document)).status);
-        setHistory(await historyFor(key));
+        const doc = await api.record(loc, sp.mode, input);
+        void keepCopy(key, doc);
+        if (current.current === key) {
+          setFetched({ key, value: doc });
+          setFailed(null);
+        }
       } catch (e) {
-        setError(msg(e));
+        if (current.current === key) setFailed({ key, value: { message: errorMessage(e), retryable: canRetry(e) } });
       } finally {
-        setFetching(false);
+        setFetching((was) => (was === key ? null : was));
       }
     },
     [loc, key, lookup, ctx, mobile, sp.lang, sp.mode],
@@ -186,8 +186,7 @@ export function DocumentScreen({ initial }: { initial: TreeSnapshot }) {
 
   /**
    * Opening this page *is* the request, so it fetches on arrival — once per
-   * document, and only once the two things it needs have landed: the village's
-   * context and the device's mobile number.
+   * record, as soon as the village's context and the device's number are in.
    */
   const requested = useRef<string | null>(null);
   useEffect(() => {
@@ -196,35 +195,21 @@ export function DocumentScreen({ initial }: { initial: TreeSnapshot }) {
     void fetchNow();
   }, [key, canFetch, fetchNow]);
 
-  // --- What to show ---------------------------------------------------------
-
-  const showing = pinned ?? (live ? null : history[0] ?? null);
-  const [snapView, setSnapView] = useState<Viewable | null>(null);
-  useEffect(() => {
-    if (!showing) {
-      setSnapView(null);
-      return;
-    }
-    let alive = true;
-    void viewableFromSnapshot(showing).then((v) => alive && setSnapView(v));
-    return () => {
-      alive = false;
-    };
-  }, [showing]);
+  const mine = <T extends { key: string }>(x: T | null) => (x && x.key === key ? x : null);
+  const live = mine(fetched)?.value ?? null;
+  const copy = mine(kept);
+  const isFetching = fetching === key;
 
   const liveView = useMemo(() => (live ? viewableFromDocument(live) : null), [live]);
-  const view = pinned ? snapView : liveView ?? snapView;
+  const view = liveView ?? copy?.view ?? null;
 
   /**
    * An 8A *is* the list of survey numbers held under a khata, so reading the
-   * document on screen — live or stored — hands over the whole holder → land
+   * document on screen — live or kept — hands over the whole holder → land
    * edge without a further request.
    */
   const holdings = useMemo(
-    () =>
-      view?.format === "html" && view.recordType === "8A"
-        ? parseEightA(view.html).surveyNumbers
-        : [],
+    () => (view?.format === "html" && view.recordType === "8A" ? parseEightA(view.html).surveyNumbers : []),
     [view],
   );
 
@@ -234,297 +219,153 @@ export function DocumentScreen({ initial }: { initial: TreeSnapshot }) {
   }, [holdings, entry?.id, entry?.kind]);
 
   // Without the village's context there is nothing to fetch with, so a failure
-  // there is this screen's failure too.
-  const failure = error ?? (contextRes.status === "error" ? contextRes.message : null);
+  // there is this screen's failure too. Held back while a retry or refresh is
+  // under way, so the wait shows as a wait.
+  const failure = isFetching ? null : (mine(failed)?.value ?? (contextRes.status === "error" ? contextRes : null));
+  const retryFailed = contextRes.status === "error" ? contextRes.retry : () => void fetchNow();
+  const retry = failure?.retryable ? retryFailed : undefined;
 
-  const mobileValid = MOBILE.test(mobile ?? "");
-  const needsMobile = mobile !== null && !mobileValid;
-  const title = entry ? titleOf(entry) : subject?.code ?? "";
+  const named = place && place.villageName !== place.village;
+  const heading = subject ? describe(subject) : null;
+  const title = entry && titleOf(entry) !== entry.code ? titleOf(entry) : heading;
 
   return (
     <div className="shell">
-      <header className="masthead">
-        <Link className="wordmark" href="/">
-          Bhumi
-        </Link>
-        {lookup && (
-          <Link className="source" href={searchHref(lookup, sp.lang)}>
-            Search
-          </Link>
+      <Masthead />
+      <main>
+        <OfflineNotice />
+
+        {lookup ? (
+          <>
+            <Link className="back" href={searchHref(lookup, sp.lang)}>
+              <span aria-hidden="true">←</span> Back to search
+            </Link>
+            <div className="doc-head">
+              <h1 className="doc-title" lang={title !== heading ? "mr" : undefined}>
+                {title ?? (
+                  <span className="skeleton skeleton-text">
+                    <span className="sr-only">Loading</span>
+                  </span>
+                )}
+              </h1>
+              <p className="doc-path">
+                {title !== heading && heading && <span>{heading} · </span>}
+                {place && named ? (
+                  <span lang="mr">{placeName(place)}</span>
+                ) : (
+                  <span className="skeleton skeleton-text skeleton-wide">
+                    <span className="sr-only">Loading place names</span>
+                  </span>
+                )}
+              </p>
+            </div>
+          </>
+        ) : (
+          // Shaped like the not-found screen: this is one, for a record.
+          <div className="gate">
+            <h1 className="intro-title">This link does not name a record</h1>
+            <p className="lede">It may have been cut short when it was shared.</p>
+            <div className="step-actions">
+              <Link className="btn btn-primary" href="/">
+                Search land records
+              </Link>
+            </div>
+          </div>
         )}
-      </header>
 
-      {place && (
-        <div className="doc-head">
-          <h1 className="doc-title" lang="mr">
-            {title}
-          </h1>
-          <p className="doc-path" lang="mr">
-            {placeName(place)}
-          </p>
-        </div>
-      )}
+        {lookup && !view && (
+          <div className="gate">
+            {failure ? (
+              <Failure message={failure.message} onRetry={retry} />
+            ) : (
+              <Loading
+                size="lg"
+                label={
+                  contextRes.status === "loading" ? "Getting this village’s details…" : "Getting the record from Mahabhulekh…"
+                }
+                stages={PORTAL_STAGES}
+              />
+            )}
+          </div>
+        )}
 
-      {!lookup && <p className="alert">This link does not name a record.</p>}
+        {/* Above the record, next to the Refresh that failed — not below a screen of document. */}
+        {view && failure && <Failure message={`Could not get a newer copy. ${failure.message}`} onRetry={retry} />}
 
-      {lookup && needsMobile && (
-        <div className="gate">
-          <MobileForm
-            onSubmit={(value) => {
-              saveMobile(value);
-              setMobile(value);
-            }}
-          />
-        </div>
-      )}
-
-      {lookup && !view && !needsMobile && !failure && (
-        <div className="gate" role="status">
-          <span className="spinner spinner-lg" aria-hidden="true" />
-          <p className="help">Fetching from Mahabhulekh. The portal is slow; this can take up to half a minute.</p>
-        </div>
-      )}
-
-      {!view && failure && !needsMobile && (
-        <div className="gate">
-          <p className="alert" role="alert">
-            {failure}
-          </p>
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={fetching || (!canFetch && contextRes.status !== "error")}
-            onClick={() => (canFetch ? void fetchNow() : window.location.reload())}
-          >
-            Try again
-          </button>
-        </div>
-      )}
-
-      {view && (
-        <RecordView
-          doc={view}
-          scrollIntoView={false}
-          meta={
-            <Freshness
-              pinned={pinned}
-              live={!!live}
-              fetching={fetching}
-              error={error}
-              latest={history[0] ?? null}
-              status={status}
-            />
-          }
-          actions={
-            <>
-              {subject && <SaveControl subject={subject} />}
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => void fetchNow()}
-                disabled={fetching || !canFetch}
-              >
-                {fetching ? "Refreshing" : "Refresh"}
-              </button>
-              {ctx && ctx.languages.length > 1 && (
-                <select
-                  className="sel sel-inline"
-                  aria-label="Language"
-                  value={language}
-                  disabled={fetching}
-                  onChange={(e) => {
-                    void setSp({ lang: e.target.value });
-                    void fetchNow(e.target.value);
-                  }}
+        {view && (
+          <RecordView
+            doc={view}
+            subject={heading && place ? `${heading} ${place.villageName}` : undefined}
+            meta={
+              live
+                ? "Fetched just now"
+                : copy
+                  ? `Your copy from ${when(copy.savedAt)}${isFetching ? " · checking for a newer one…" : ""}`
+                  : null
+            }
+            actions={
+              <>
+                {subject && <SaveControl subject={subject} />}
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => void fetchNow()}
+                  disabled={isFetching || !canFetch}
+                  aria-busy={isFetching}
                 >
-                  {ctx.languages.map((l) => (
-                    <option key={l.value} value={l.value}>
-                      {l.label}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </>
-          }
-        />
-      )}
-
-      {view && error && (
-        <p className="alert" role="alert">
-          {error}
-        </p>
-      )}
-
-      {/* 7/12s only: the map is addressed by the rural village code, and
-          Bhunaksha's urban (Property Card) maps are not wired up. Held back
-          while the record loads, so the loader is the only thing on screen. */}
-      {place && lookup?.type === "7/12" && subject?.kind === "parcel" && (view || failure) && (
-        <ParcelMap place={place} survey={subject.code} />
-      )}
-
-      {place && holdings.length > 0 && (
-        <Holdings place={place} numbers={holdings} lang={sp.lang} />
-      )}
-
-      {place && subject?.kind === "parcel" && (
-        <HeldBy place={place} number={subject.code} lang={sp.lang} />
-      )}
-
-      {history.length > 0 && (
-        <History
-          rows={history}
-          pinned={pinned}
-          onPin={setPinned}
-          hasLive={!!live}
-          onClear={async () => {
-            if (!key) return;
-            await forgetHistory(key);
-            setHistory([]);
-            setPinned(null);
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-/** Says which copy is on screen and how current it is. */
-function Freshness({
-  pinned,
-  live,
-  fetching,
-  error,
-  latest,
-  status,
-}: {
-  pinned: Snapshot | null;
-  live: boolean;
-  fetching: boolean;
-  error: string | null;
-  latest: Snapshot | null;
-  status: SnapshotStatus | null;
-}) {
-  if (pinned) return <> · {day(pinned.firstSeenAt)}</>;
-  if (live) {
-    if (status === "changed") return <> · Changed since your last copy</>;
-    return <> · Just now</>;
-  }
-  if (!latest) return null;
-  if (fetching) return <> · {day(latest.firstSeenAt)} · refreshing</>;
-  return <> · {day(latest.firstSeenAt)}</>;
-}
-
-/**
- * The record's history on this device.
- *
- * Every row is a version whose bytes differ from the one before it, so the list
- * is a changelog of the land rather than a log of how often it was opened. It
- * is also the only part of this app the portal cannot give back: Mahabhulekh
- * serves the current 7/12 and keeps no public record of फेरफार, so a copy is
- * the only answer there will ever be to "what did this say last March".
- */
-function History({
-  rows,
-  pinned,
-  onPin,
-  hasLive,
-  onClear,
-}: {
-  rows: Snapshot[];
-  pinned: Snapshot | null;
-  onPin: (s: Snapshot | null) => void;
-  hasLive: boolean;
-  onClear: () => Promise<void>;
-}) {
-  const [confirming, setConfirming] = useState(false);
-  return (
-    <details className="history" open={pinned ? true : undefined}>
-      <summary>
-        History<span className="count">{rows.length}</span>
-      </summary>
-      <ol className="history-list">
-        {rows.map((row) => (
-          <li key={row.id}>
-            <button
-              type="button"
-              className="history-row"
-              aria-current={pinned?.id === row.id || undefined}
-              onClick={() => onPin(pinned?.id === row.id ? null : row)}
-            >
-              <span className="history-date">{day(row.firstSeenAt)}</span>
-              {row.lastSeenAt !== row.firstSeenAt && (
-                <span className="history-note">to {day(row.lastSeenAt)}</span>
-              )}
-            </button>
-          </li>
-        ))}
-      </ol>
-      <div className="record-actions">
-        {pinned && (
-          <button type="button" className="btn btn-ghost" onClick={() => onPin(null)}>
-            {hasLive ? "Current" : "Latest"}
-          </button>
+                  {isFetching && <span className="spinner" aria-hidden="true" />}
+                  {isFetching ? "Refreshing" : "Refresh"}
+                </button>
+                {ctx && ctx.languages.length > 1 && (
+                  <select
+                    className="sel sel-inline"
+                    aria-label="Language of the record"
+                    value={language}
+                    disabled={isFetching}
+                    onChange={(e) => {
+                      void setSp({ lang: e.target.value });
+                      void fetchNow(e.target.value);
+                    }}
+                  >
+                    {ctx.languages.map((l) => (
+                      <option key={l.value} value={l.value}>
+                        {l.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </>
+            }
+          />
         )}
-        {/* Two presses, because the portal cannot give any of this back. */}
-        <button
-          type="button"
-          className="btn btn-ghost"
-          onClick={() => {
-            if (confirming) void onClear();
-            setConfirming(!confirming);
-          }}
-        >
-          {confirming ? "Delete — cannot be undone" : "Clear"}
-        </button>
-      </div>
-    </details>
+
+        {/* 7/12s only: the map is addressed by the rural village code, and
+            Bhunaksha's urban (Property Card) maps are not wired up. Held back
+            while the record loads, so the loader is the only thing on screen. */}
+        {place && lookup?.type === "7/12" && subject?.kind === "parcel" && (view || failure) && (
+          <ParcelMap place={place} survey={subject.code} />
+        )}
+
+        {place && holdings.length > 0 && <Holdings place={place} numbers={holdings} lang={sp.lang} />}
+
+        {place && subject?.kind === "parcel" && <HeldBy place={place} number={subject.code} lang={sp.lang} />}
+      </main>
+
+      <SiteFooter />
+    </div>
   );
 }
 
-/**
- * A plausible Indian mobile number: starts 6-9, ten digits. The portal demands
- * one on every request but never verifies it, so nobody should have to hand
- * over their own just to read a public record.
- */
-const randomMobile = () =>
-  String(6 + Math.floor(Math.random() * 4)) +
-  Array.from({ length: 9 }, () => Math.floor(Math.random() * 10)).join("");
-
-function MobileForm({ onSubmit }: { onSubmit: (value: string) => void }) {
-  // Only ever rendered on the client (it waits for localStorage), so a random
-  // initial value cannot mismatch the server render.
-  const [value, setValue] = useState(randomMobile);
-  const valid = MOBILE.test(value);
-  return (
-    <div className="field">
-      <label className="lbl" htmlFor="doc-mobile">
-        Mobile number
-      </label>
-      <div className="search-group">
-        <input
-          id="doc-mobile"
-          className="inp"
-          autoFocus
-          value={value}
-          inputMode="numeric"
-          autoComplete="tel-national"
-          maxLength={10}
-          aria-invalid={!!value && !valid}
-          onChange={(e) => setValue(e.target.value.replace(/\D/g, ""))}
-          onKeyDown={(e) => e.key === "Enter" && valid && onSubmit(value)}
-          placeholder="10 digits"
-          aria-describedby="doc-mobile-help"
-        />
-        <button type="button" className="btn btn-primary" disabled={!valid} onClick={() => onSubmit(value)}>
-          Open
-        </button>
-      </div>
-      <p className="help" id="doc-mobile-help">
-        Mahabhulekh asks for a mobile number but accepts any number without verification. This one
-        was generated at random; use your own if you prefer. It stays on this device.
-      </p>
-    </div>
-  );
+/** "Survey 167/2", "Khata 2379" — what the record is of, in words. */
+function describe(subject: Draft): string {
+  switch (subject.kind) {
+    case "holder":
+      return `Khata ${subject.code}`;
+    case "measurement":
+      return `Measurement ${subject.code}`;
+    case "parcel":
+      return `${subject.register === "PropertyCard" ? "CTS" : "Survey"} ${subject.code}`;
+  }
 }
 
 const labelOf = (options: Option[] | undefined, value: string) =>
@@ -533,8 +374,7 @@ const labelOf = (options: Option[] | undefined, value: string) =>
 /** `place` with any name that is still just its code filled in from `names`. */
 function withNames(place: Place, names: Place | null): Place {
   if (!names) return place;
-  const pick = (name: string, code: string, better: string) =>
-    name === code && better !== code ? better : name;
+  const pick = (name: string, code: string, better: string) => (name === code && better !== code ? better : name);
   const next = {
     ...place,
     districtName: pick(place.districtName, place.district, names.districtName),

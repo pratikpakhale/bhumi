@@ -58,7 +58,10 @@ const STYLE: StyleSpecification = {
       type: "raster",
       tiles: [IMAGERY],
       tileSize: 256,
-      maxzoom: 19,
+      // Esri covers most of rural Maharashtra only to 18 and answers deeper
+      // with a grey "Map data not yet available" tile, not a 404; stopping
+      // here makes MapLibre stretch level 18 instead.
+      maxzoom: 18,
       attribution: "Imagery © Esri, Maxar, Earthstar Geographics",
     },
     plot: { type: "geojson", data: { type: "FeatureCollection", features: [] } },
@@ -101,7 +104,7 @@ export interface MapCanvasProps {
   /** Outlined over the drawings. */
   plot: MapPlot | null;
   camera: Camera | null;
-  /** The map's accessible name. */
+  /** The map's accessible name, given to MapLibre's focusable canvas region. */
   label: string;
   labels?: VillageLabel[];
   /** A tap on the map, as `[lng, lat]`, with the zoom it was made at. */
@@ -152,6 +155,7 @@ export default function MapCanvas({
       maxZoom: 20,
       cooperativeGestures: cooperative,
       attributionControl: { compact: true },
+      locale: { "Map.Title": label },
     });
     m.addControl(new NavigationControl({ showCompass: false }), "top-right");
     m.addControl(new FullscreenControl(), "top-right");
@@ -184,6 +188,10 @@ export default function MapCanvas({
   useEffect(() => {
     if (map) map.getCanvas().style.cursor = pickable ? "pointer" : "";
   }, [map, pickable]);
+
+  useEffect(() => {
+    map?.getCanvas().setAttribute("aria-label", label);
+  }, [map, label]);
 
   // One raster source per village: Bhunaksha draws a village per request, and
   // each source's bounds keep it from asking for tiles outside its village.
@@ -254,5 +262,5 @@ export default function MapCanvas({
     return () => void marker.remove();
   }, [map, pending]);
 
-  return <div ref={container} className={className} role="region" aria-label={label} />;
+  return <div ref={container} className={className} />;
 }

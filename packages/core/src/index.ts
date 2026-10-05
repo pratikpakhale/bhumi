@@ -7,7 +7,6 @@ export { parseParcelLabel } from "./parcel.js";
 export type { ParcelLabel } from "./parcel.js";
 export type { VillageContext, FetchRecordInput, SearchMode } from "./client.js";
 export type { SessionOptions } from "./session.js";
-export { extractCaptcha } from "./viewstate.js";
 export { parseEightA, normalizeDigits, surveyBase } from "./eightA.js";
 export type { EightAHolding } from "./eightA.js";
 export { bhunakshaCode, matchPlot, parsePlotInfo } from "./map.js";

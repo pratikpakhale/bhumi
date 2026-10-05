@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { readPlace, withHandler } from "@/lib/api";
+import { BadRequest, readPlace, withHandler } from "@/lib/api";
 import { getPlotAt } from "@/lib/parcel-map";
 
 /** May have to place the taluka first; see the taluka route. */
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     const { district, taluka, village } = readPlace(p);
     const at: [number, number] = [Number(p.get("lng")), Number(p.get("lat"))];
     // Maharashtra, generously: anything outside it cannot be in the taluka.
-    if (!(at[0] > 70 && at[0] < 82 && at[1] > 14 && at[1] < 23)) throw new Error("Not a point in Maharashtra");
+    if (!(at[0] > 70 && at[0] < 82 && at[1] > 14 && at[1] < 23)) throw new BadRequest("Not a point in Maharashtra.");
     return getPlotAt(district, taluka, at, village);
   });
 }

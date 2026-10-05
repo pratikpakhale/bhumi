@@ -17,14 +17,53 @@ import type { VillageContext } from "./client";
 export const MOBILE = /^[6-9]\d{9}$/;
 
 /**
- * Personal, and required by the portal on every fetch, so it stays on the
- * device and never enters the URL — a shared link must not carry the sharer's
- * phone number.
+ * The mobile number the portal demands on every fetch.
+ *
+ * It never verifies one, so nobody should have to hand over their own — or
+ * even be asked — to read a public record. The device gets a random, plausible
+ * number the first time it needs one and keeps it, so the portal sees one
+ * consistent caller. It stays on the device and never enters the URL.
  */
 const MOBILE_KEY = "bhumi_mobile";
 
-export const readMobile = (): string => localStorage.getItem(MOBILE_KEY) ?? "";
-export const saveMobile = (value: string): void => localStorage.setItem(MOBILE_KEY, value);
+/** A random ten-digit number starting with 9. */
+export const randomMobile = (): string =>
+  "9" + Array.from({ length: 9 }, () => Math.floor(Math.random() * 10)).join("");
+
+/** This device's number, created on first use. */
+export function deviceMobile(): string {
+  try {
+    const kept = localStorage.getItem(MOBILE_KEY);
+    if (kept && MOBILE.test(kept)) return kept;
+    const fresh = randomMobile();
+    localStorage.setItem(MOBILE_KEY, fresh);
+    return fresh;
+  } catch {
+    // Storage blocked (private mode): a number per page load still works.
+    return randomMobile();
+  }
+}
+
+/** This device's number if it has one yet, without creating it. */
+export function storedMobile(): string | null {
+  try {
+    const kept = localStorage.getItem(MOBILE_KEY);
+    return kept && MOBILE.test(kept) ? kept : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Replace this device's number with a fresh one, and return it. */
+export function renewMobile(): string {
+  const fresh = randomMobile();
+  try {
+    localStorage.setItem(MOBILE_KEY, fresh);
+  } catch {
+    // Nothing to keep it in; the next request makes another anyway.
+  }
+  return fresh;
+}
 
 /**
  * The requested language if this village offers it, otherwise its closest

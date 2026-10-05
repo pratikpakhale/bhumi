@@ -30,6 +30,11 @@ over the imagery. Tapping a field names its survey number and the khatas holding
 each sub-division, with links to their 7/12s and 8As, and taps across a village
 line find the neighbouring village's field.
 
+Records can be saved on the device, with no account: `/saved` lists them,
+renames, reorders, groups by village, and shares the whole list as one link or
+file. Each record keeps its last fetched copy so it opens offline, and the
+places used most rise to the top of every dropdown.
+
 7/12 and 8A are verified end-to-end against the live portal. Property Card uses
 the same image path as 7/12; KJP's cascade is verified but its final fetch needs
 a real measurement number to confirm the exact result container.
@@ -50,7 +55,10 @@ packages/core   @bhumi/core — framework-free TypeScript client
 apps/web        Next.js app
   api/*           route handlers over a per-browser session store
   app/page.tsx    the search UI
+  app/record/*    the document view
+  app/saved/*     saved records and on-device data
   app/map/*       the map explorer
+  lib/brand.tsx   the mark, drawn once for the UI, icons and social card
 ```
 
 The web app keeps one live `MahabhulekhClient` per browser (keyed by an httpOnly
@@ -63,8 +71,12 @@ it on every step.
 pnpm install
 pnpm dev          # Next.js on http://localhost:3000
 pnpm build        # build core + web
-pnpm typecheck
+pnpm typecheck    # needs core built first: web reads its dist
+pnpm lint
+pnpm test
 ```
+
+`.github/workflows/ci.yml` runs the same checks on every push and pull request.
 
 ## On the captcha
 

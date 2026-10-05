@@ -249,7 +249,7 @@ describe("migrating the v1 collection", () => {
   });
 });
 
-describe("snapshot keys", () => {
+describe("record keys", () => {
   const at = (over: Partial<Lookup>): Lookup => ({
     type: "7/12",
     district: "35",
@@ -265,7 +265,7 @@ describe("snapshot keys", () => {
     ...over,
   });
 
-  it("gives one parcel one history however it was found", () => {
+  it("gives one parcel one key however it was found", () => {
     expect(lookupKey(at({}))).toBe(lookupKey(at({ mode: "name", st: "5", q: "पाखले" })));
   });
 
@@ -277,5 +277,26 @@ describe("snapshot keys", () => {
     const kjp = at({ type: "KJP", q: "12", parcel: null, sankalan: "a", purpose: "b", duration: "c" });
     expect(lookupKey(kjp)).toContain("12");
     expect(lookupKey(kjp)).not.toBe(lookupKey({ ...kjp, duration: "d" }));
+  });
+});
+
+describe("removal", () => {
+  it("can be undone, back in the same places", async () => {
+    const { collection } = await load();
+    for (const code of ["1", "2", "3", "4"]) collection.save({ kind: "parcel", code, place: PLACE });
+    const ids = collection.all().map((e) => e.id);
+    const removed = collection.forget([ids[1]!, ids[3]!]);
+    expect(collection.all().map((e) => e.code)).toEqual(["1", "3"]);
+    collection.restore(removed);
+    expect(collection.all().map((e) => e.code)).toEqual(["1", "2", "3", "4"]);
+  });
+
+  it("does not duplicate an entry saved again before the undo", async () => {
+    const { collection } = await load();
+    const entry = collection.save({ kind: "parcel", code: "1", place: PLACE });
+    const removed = collection.forget(entry.id);
+    collection.save({ kind: "parcel", code: "1", place: PLACE });
+    collection.restore(removed);
+    expect(collection.all()).toHaveLength(1);
   });
 });

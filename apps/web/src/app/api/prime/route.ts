@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
-import { withHandler } from "@/lib/api";
-import { withSession, type Locator } from "@/lib/store";
+import { primeBody, readBody, withHandler } from "@/lib/api";
+import { withSession } from "@/lib/store";
 
 export const maxDuration = 60;
 
@@ -10,8 +10,8 @@ export const maxDuration = 60;
  */
 export async function POST(req: NextRequest) {
   return withHandler(async () => {
-    const loc = (await req.json()) as Locator;
-    await withSession({ ...loc, mode: loc.mode ?? "number" }, async () => {});
+    const loc = await readBody(req, primeBody);
+    await withSession(loc, async () => {});
     return { primed: true };
   });
 }

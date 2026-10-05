@@ -24,6 +24,14 @@ import type { RecordType, SearchMode } from "@bhumi/core";
 export const RECORD_TYPES = ["7/12", "8A", "PropertyCard", "KJP"] as const;
 export const SEARCH_MODES = ["number", "name"] as const;
 
+/** What each record type is called on screen. */
+export const RECORD_LABELS: Record<RecordType, string> = {
+  "7/12": "7/12",
+  "8A": "8A",
+  PropertyCard: "Property Card",
+  KJP: "Kami-Jasti",
+};
+
 // Compile-time guard that the literals above stay in sync with the core types.
 const _rt: readonly RecordType[] = RECORD_TYPES;
 const _sm: readonly SearchMode[] = SEARCH_MODES;
@@ -78,10 +86,10 @@ export const loadSearchParams = createLoader(searchParams);
  * reading, not of the land, so two people wanting the same parcel in different
  * scripts are not holding different lookups. `open` is a link mode, not data.
  * Keeping both out is what lets a {@link Lookup} be a stable identity: saved,
- * deduped and used as a snapshot key.
+ * deduped and used as the key of the record's offline copy.
  *
  * The field names are the param names on purpose — one vocabulary for the URL,
- * the saved collection and the snapshot store, so there is no mapping table to
+ * the saved collection and the offline copies, so there is no mapping table to
  * drift.
  */
 export interface Lookup {
@@ -134,8 +142,8 @@ export function isComplete(l: Lookup): boolean {
  * `mode`, `st` and `q` are the route, and the portal offers several: parcel
  * `167/2` found by typing `167` and found by searching the surname `पाखले` is
  * one extract, reached two ways. Keying on the route would file it as two, so
- * the route is left out. That is what makes this safe as both the snapshot
- * store's foreign key and the collection's dedup key.
+ * the route is left out. That is what makes this safe as both the offline
+ * copy's key and the collection's dedup key.
  *
  * KJP is the exception, and the reason the branch exists: it has no parcel, and
  * its measurement number plus the three classifications *are* the address.

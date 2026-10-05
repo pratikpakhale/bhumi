@@ -1,18 +1,20 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryStates } from "nuqs";
 import type { Bounds, Option } from "@bhumi/core";
-import { api } from "@/lib/client";
+import { api, errorMessage } from "@/lib/client";
 import { mapParams } from "@/lib/map-params";
-import { useResource, dataOf, firstError } from "@/lib/resource";
+import { useResource, dataOf, firstFailure } from "@/lib/resource";
+import { scope } from "@/lib/recents";
 import { DETAIL_ZOOM, centreOf, contains, unionOf } from "@/lib/geo";
 import type { Place } from "@/lib/collection";
 import type { TreeSnapshot } from "@/lib/tree";
 import { Combobox } from "@/components/Combobox";
 import { PlotCard } from "@/components/PlotCard";
+import { Masthead, OfflineNotice } from "@/components/Chrome";
+import { Failure, Loading } from "@/components/Status";
 import type { Camera, DrawnVillage, VillageLabel } from "@/components/MapCanvas";
 
 // MapLibre touches `window` as it loads, so it never renders on the server.
@@ -24,7 +26,7 @@ const MapCanvas = dynamic(() => import("@/components/MapCanvas"), {
 /** The register the map belongs to: Bhunaksha draws the rural, 7/12 villages. */
 const RT = "7/12" as const;
 
-const msg = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong");
+const labelOf = (opts: Option[], v: string | null) => opts.find((o) => o.value === v)?.label ?? null;
 
 /** Plot numbers in the order a reader expects: 2 before 10, 10 before 10/1. */
 const byNumber = new Intl.Collator("en", { numeric: true }).compare;
@@ -113,7 +115,7 @@ export function Explorer({ initial }: { initial: TreeSnapshot }) {
 
   const target = useMemo<Target | null>(() => {
     if (plotNo && plotRes.status !== "ready") return null;
-    if (plot) return { key: `p|${village}|${plot.number}`, bounds: plot.bounds, maxZoom: 18 };
+    if (plot) return { key: `p|${village}|${plot.number}`, bounds: plot.bounds, maxZoom: 17 };
     if (village) return villageMap && { key: `v|${village}`, bounds: villageMap.bounds, maxZoom: 16 };
     if (talukaMap?.villages.length) {
       const bounds = unionOf(talukaMap.villages.map((v) => v.bounds));
@@ -169,17 +171,20 @@ export function Explorer({ initial }: { initial: TreeSnapshot }) {
         setNote("No survey number is drawn there.");
       }
     } catch (e) {
-      if (seq === pickSeq.current) setNote(msg(e));
+      if (seq === pickSeq.current) setNote(errorMessage(e));
     } finally {
       if (seq === pickSeq.current) setPending(null);
     }
   }
 
-  const close = () => {
+  const card = useRef<HTMLDivElement>(null);
+  const close = useCallback(() => {
     // Closing the card is not a request to zoom out.
     quiet.current = `v|${village}`;
     void setSp({ plot: null });
-  };
+    // Focus inside the card would be lost with it; keep it where the card was.
+    if (card.current?.contains(document.activeElement)) card.current.focus();
+  }, [village, setSp]);
 
   useEffect(() => {
     if (!plotNo) return;
@@ -189,10 +194,9 @@ export function Explorer({ initial }: { initial: TreeSnapshot }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  });
+  }, [plotNo, close]);
 
   // On a phone the card sits under the map; bring it up when a plot arrives.
-  const card = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (plot && matchMedia("(max-width: 899px)").matches) {
       card.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -205,7 +209,6 @@ export function Explorer({ initial }: { initial: TreeSnapshot }) {
   const onVillage = (value: string) => setSp({ village: value, plot: null });
   const onPlot = (value: string) => setSp({ plot: value });
 
-  const labelOf = (opts: Option[], v: string | null) => opts.find((o) => o.value === v)?.label ?? null;
   const villageName =
     labelOf(villages, village) ?? talukaMap?.villages.find((v) => v.code === village)?.name ?? village;
 
@@ -245,120 +248,122 @@ export function Explorer({ initial }: { initial: TreeSnapshot }) {
                 ? "Tap a village, or zoom in to pick a field."
                 : "Tap a field to see its survey number and holders.";
 
-  const error = firstError(districtsRes, talukasRes, villagesRes, talukaRes, villageRes, plotRes);
+  const failure = firstFailure(districtsRes, talukasRes, villagesRes, talukaRes, villageRes, plotRes);
 
   return (
     <div className="explore">
       <div className="explore-panel">
-        <header className="masthead">
-          <Link href="/" className="wordmark wordmark-link">
-            Bhumi
-          </Link>
-          <span className="source">Bhunaksha</span>
-        </header>
+        <Masthead />
+        <main>
+          <OfflineNotice />
 
-        <section className="step" aria-labelledby="explore-title">
-          <div className="step-head">
-            <h1 className="step-title" id="explore-title">
-              Map
-            </h1>
-            {path && (
-              <p className="step-note" lang="mr">
-                {path}
+          <section className="step" aria-labelledby="explore-title">
+            <div className="step-head">
+              <h1 className="intro-title" id="explore-title">
+                Find land on the map
+              </h1>
+              {path && (
+                <p className="step-note" lang="mr">
+                  {path}
+                </p>
+              )}
+            </div>
+
+            <div className="row">
+              <div className="field">
+                <label className="lbl" htmlFor="m-district">
+                  District
+                </label>
+                <Combobox
+                  id="m-district"
+                  noun="districts"
+                  options={districts}
+                  value={district}
+                  onChange={onDistrict}
+                  placeholder="Choose district"
+                  loading={districtsRes.status === "loading"}
+                  disabled={districts.length === 0}
+                  recentScope={scope(RT)}
+                />
+              </div>
+              <div className="field">
+                <label className="lbl" htmlFor="m-taluka">
+                  Taluka
+                </label>
+                <Combobox
+                  id="m-taluka"
+                  noun="talukas"
+                  options={talukas}
+                  value={taluka}
+                  onChange={onTaluka}
+                  placeholder={district ? "Choose taluka" : "Choose district first"}
+                  loading={talukasRes.status === "loading"}
+                  disabled={!district}
+                  recentScope={district ? scope(RT, district) : undefined}
+                />
+              </div>
+            </div>
+
+            <div className="field">
+              <label className="lbl" htmlFor="m-village">
+                Village
+              </label>
+              <Combobox
+                id="m-village"
+                noun="villages"
+                options={villages}
+                value={village}
+                onChange={onVillage}
+                placeholder={!taluka ? "Choose taluka first" : mapped ? `Choose village — ${mapped} mapped` : "Choose village"}
+                loading={villagesRes.status === "loading"}
+                disabled={!taluka}
+                recentScope={district && taluka ? scope(RT, district, taluka) : undefined}
+              />
+              {unmappedVillage && (
+                <p className="help">Bhunaksha has no georeferenced map for this village yet.</p>
+              )}
+            </div>
+
+            {village && villageMap && (
+              <div className="field">
+                <label className="lbl" htmlFor="m-plot">
+                  Survey number
+                </label>
+                <Combobox
+                  id="m-plot"
+                  noun="survey numbers"
+                  options={plotOptions}
+                  value={plot?.number ?? plotNo}
+                  onChange={onPlot}
+                  placeholder={plotOptions.length ? `${plotOptions.length} drawn — type to find` : "Survey number"}
+                  loading={villageRes.status === "loading"}
+                  disabled={plotOptions.length === 0}
+                />
+                {notDrawn && <p className="help">Survey {plotNo} is not drawn on this village’s map.</p>}
+              </div>
+            )}
+          </section>
+
+          {failure && <Failure message={failure.message} onRetry={failure.retryable ? failure.retry : undefined} />}
+
+          <div ref={card} className="explore-card" tabIndex={-1}>
+            {plot && place ? (
+              <PlotCard place={place} plot={plot} onClose={close} />
+            ) : plotRes.status === "loading" ? (
+              <div className="plot-skeleton">
+                <Loading label={`Finding survey ${plotNo} on the map…`} />
+                <div className="skeleton" aria-hidden="true" />
+                <div className="skeleton" aria-hidden="true" />
+              </div>
+            ) : (
+              <p className="help explore-intro">
+                Satellite imagery with each village’s survey map drawn over it. Tap a field to see its
+                survey number and who holds it, then open its 7/12. Maps are Bhunaksha’s and cover the
+                villages it has georeferenced.
               </p>
             )}
           </div>
-
-          <div className="row">
-            <div className="field">
-              <label className="lbl" htmlFor="m-district">
-                District
-              </label>
-              <Combobox
-                id="m-district"
-                options={districts}
-                value={district}
-                onChange={onDistrict}
-                placeholder="District"
-                loading={districtsRes.status === "loading"}
-                disabled={districts.length === 0}
-              />
-            </div>
-            <div className="field">
-              <label className="lbl" htmlFor="m-taluka">
-                Taluka
-              </label>
-              <Combobox
-                id="m-taluka"
-                options={talukas}
-                value={taluka}
-                onChange={onTaluka}
-                placeholder="Taluka"
-                loading={talukasRes.status === "loading"}
-                disabled={!district || talukasRes.status === "loading"}
-              />
-            </div>
-          </div>
-
-          <div className="field">
-            <label className="lbl" htmlFor="m-village">
-              Village
-            </label>
-            <Combobox
-              id="m-village"
-              options={villages}
-              value={village}
-              onChange={onVillage}
-              placeholder={mapped ? `Village — ${mapped} mapped` : "Village"}
-              loading={villagesRes.status === "loading"}
-              disabled={!taluka || villagesRes.status === "loading"}
-            />
-            {unmappedVillage && (
-              <p className="help">Bhunaksha has no georeferenced map for this village yet.</p>
-            )}
-          </div>
-
-          {village && villageMap && (
-            <div className="field">
-              <label className="lbl" htmlFor="m-plot">
-                Survey number
-              </label>
-              <Combobox
-                id="m-plot"
-                options={plotOptions}
-                value={plot?.number ?? plotNo}
-                onChange={onPlot}
-                placeholder={plotOptions.length ? `${plotOptions.length} drawn — type to find` : "Survey number"}
-                loading={villageRes.status === "loading"}
-                disabled={plotOptions.length === 0}
-              />
-              {notDrawn && <p className="help">Survey {plotNo} is not drawn on this village’s map.</p>}
-            </div>
-          )}
-        </section>
-
-        <div ref={card} className="explore-card">
-          {plot && place ? (
-            <PlotCard place={place} plot={plot} onClose={close} />
-          ) : plotRes.status === "loading" ? (
-            <div className="plot-skeleton" aria-busy="true">
-              <div className="skeleton" />
-              <div className="skeleton" />
-            </div>
-          ) : (
-            <p className="help explore-intro">
-              Satellite imagery with each village’s survey map drawn over it. Tap a field to see its
-              survey number and who holds it, then open its 7/12. Maps are Bhunaksha’s and cover the
-              villages it has georeferenced.
-            </p>
-          )}
-        </div>
-
-        {error && (
-          <p className="alert" role="alert">
-            {error}
-          </p>
-        )}
+        </main>
       </div>
 
       <div className="explore-map">
@@ -374,11 +379,10 @@ export function Explorer({ initial }: { initial: TreeSnapshot }) {
           onZoom={setZoom}
           label={place ? `Map of ${place.villageName}` : "Map of Maharashtra"}
         />
-        {hint && (
-          <p className="map-hint" role="status">
-            {hint}
-          </p>
-        )}
+        {/* Always mounted, so the first hint after a quiet spell is announced too. */}
+        <p className="map-hint" role="status">
+          {hint}
+        </p>
       </div>
     </div>
   );

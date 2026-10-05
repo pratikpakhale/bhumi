@@ -6,28 +6,33 @@
  * The page's dropdowns are all the same shape: some inputs identify a thing,
  * and the thing is fetched when those inputs change. Modelling that as a
  * `Resource` rather than a `useState` + `useEffect` + a shared "busy" flag buys
- * three things:
+ * four things:
  *
  *  - **Concurrency is expressible.** Every resource carries its own status, so
  *    four cascade levels can load at once and each dropdown reports its own
- *    spinner. A single shared busy slot could only ever describe one of them,
- *    and the effects raced to clear it.
+ *    spinner.
  *  - **"Empty" is distinguishable from "not asked yet".** `idle` and
- *    `ready([])` are different states, so an empty result renders an empty
- *    message and an untouched field renders nothing.
- *  - **Deps stay honest.** The identity of the request is a string key, so the
- *    effect depends on exactly one value and needs no lint suppression.
+ *    `ready([])` are different states.
+ *  - **No stale frame.** The state remembers which key it answers, so the
+ *    render after a key changes already reads `loading` — never the previous
+ *    key's data under the new key's name.
+ *  - **Failures are recoverable in place.** `retry()` asks again for the same
+ *    key, so an error is a button, not a reload.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { canRetry, errorMessage, peek } from "./client";
 
 export type Resource<T> =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "ready"; data: T }
-  | { status: "error"; message: string };
+  | { status: "error"; message: string; retryable: boolean };
 
-const message = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong");
+export type Loaded<T> = Resource<T> & { retry: () => void };
+
+const IDLE = { status: "idle" } as const;
+const LOADING = { status: "loading" } as const;
 
 /**
  * Load `T` whenever `key` changes. A null key means "nothing to ask for yet"
@@ -35,14 +40,14 @@ const message = (e: unknown) => (e instanceof Error ? e.message : "Something wen
  *
  * `seed` is data the server already resolved for the *initial* key; when
  * present the resource starts `ready` and skips the first fetch entirely, which
- * is what lets a server-rendered page hydrate without a request waterfall. It
- * is consumed once — navigating away and back re-fetches (through the client
- * memo cache, so that is cheap).
+ * is what lets a server-rendered page hydrate without a request waterfall.
+ *
+ * Keys share the namespace of the client's memo (`lib/client.ts`), so a key
+ * whose answer has already arrived is `ready` on the very first render.
  */
-export function useResource<T>(key: string | null, load: () => Promise<T>, seed?: T): Resource<T> {
-  const seeded = useRef(seed !== undefined && key !== null ? key : null);
-  const [state, setState] = useState<Resource<T>>(
-    seed !== undefined && key !== null ? { status: "ready", data: seed } : { status: "idle" },
+export function useResource<T>(key: string | null, load: () => Promise<T>, seed?: T): Loaded<T> {
+  const [state, setState] = useState<{ key: string | null; res: Resource<T> }>(() =>
+    seed !== undefined && key !== null ? { key, res: { status: "ready", data: seed } } : { key: null, res: IDLE },
   );
 
   // Held in a ref so callers can pass an inline closure without retriggering:
@@ -50,35 +55,48 @@ export function useResource<T>(key: string | null, load: () => Promise<T>, seed?
   const loadRef = useRef(load);
   loadRef.current = load;
 
+  // Anything but an answer for this key means there is something to load;
+  // `retry()` works by putting the state back to `loading`.
+  const settled = state.key === key && state.res.status !== "loading";
+
   useEffect(() => {
-    if (key === null) {
-      setState({ status: "idle" });
-      return;
-    }
-    if (seeded.current === key) {
-      seeded.current = null; // consume the server's answer exactly once
-      return;
-    }
+    if (key === null || settled) return;
     let live = true;
-    setState({ status: "loading" });
+    const known = peek<T>(key);
+    if (known !== undefined) {
+      setState({ key, res: { status: "ready", data: known } });
+      return;
+    }
     loadRef
       .current()
-      .then((data) => live && setState({ status: "ready", data }))
-      .catch((e) => live && setState({ status: "error", message: message(e) }));
+      .then((data) => live && setState({ key, res: { status: "ready", data } }))
+      .catch(
+        (e: unknown) =>
+          live && setState({ key, res: { status: "error", message: errorMessage(e), retryable: canRetry(e) } }),
+      );
     return () => {
       live = false;
     };
-  }, [key]);
+  }, [key, settled]);
 
-  return state;
+  const retry = useCallback(() => setState((s) => ({ key: s.key, res: LOADING })), []);
+
+  let res: Resource<T>;
+  if (key === null) res = IDLE;
+  else if (state.key === key) res = state.res;
+  else {
+    const known = peek<T>(key);
+    res = known !== undefined ? { status: "ready", data: known } : LOADING;
+  }
+  return { ...res, retry };
 }
 
 /** The data if it has arrived, otherwise `undefined`. */
 export const dataOf = <T,>(r: Resource<T>): T | undefined =>
   r.status === "ready" ? r.data : undefined;
 
-/** The first error across a set of resources, for a single alert slot. */
-export function firstError(...resources: Resource<unknown>[]): string | null {
-  for (const r of resources) if (r.status === "error") return r.message;
+/** The first failed resource, for a single alert slot with one retry. */
+export function firstFailure(...resources: Loaded<unknown>[]): Loaded<unknown> & { status: "error" } | null {
+  for (const r of resources) if (r.status === "error") return r;
   return null;
 }

@@ -10,6 +10,7 @@ import { mapHref } from "@/lib/map-params";
 import type { Place } from "@/lib/collection";
 
 import type { Camera } from "./MapCanvas";
+import { Failure, Loading } from "./Status";
 
 // MapLibre is most of a megabyte; only a page that is about to show a map pays for it.
 const MapCanvas = dynamic(() => import("./MapCanvas"), {
@@ -37,23 +38,23 @@ export function ParcelMap({ place, survey }: { place: Place; survey: string }) {
   const plot = data?.plot ?? null;
   const drawn = useMemo(() => (data?.village ? [data.village] : []), [data?.village]);
   const camera = useMemo<Camera | null>(
-    () => (data?.village ? { bounds: plot?.bounds ?? data.village.bounds, maxZoom: 18 } : null),
+    () => (data?.village ? { bounds: plot?.bounds ?? data.village.bounds, maxZoom: 17 } : null),
     [data?.village, plot],
   );
 
   return (
     <section className="relation" aria-labelledby="rel-map">
       <div className="relation-head">
-        <h2 className="lbl" id="rel-map">
-          Map
+        <h2 className="relation-title" id="rel-map">
+          Where it is
         </h2>
         {data?.village && (
           <div className="relation-actions">
-            <Link className="btn btn-ghost" href={mapHref({ ...place, plot: plot?.number ?? null })}>
-              Explore
+            <Link className="btn btn-ghost btn-sm" href={mapHref({ ...place, plot: plot?.number ?? null })}>
+              Open in map
             </Link>
             {plot && (
-              <a className="btn btn-ghost" href={directionsHref(plot.bounds)} target="_blank" rel="noreferrer">
+              <a className="btn btn-ghost btn-sm" href={directionsHref(plot.bounds)} target="_blank" rel="noreferrer">
                 Directions
               </a>
             )}
@@ -61,12 +62,17 @@ export function ParcelMap({ place, survey }: { place: Place; survey: string }) {
         )}
       </div>
 
-      {res.status === "loading" && <div className="map-canvas skeleton" />}
+      {res.status === "loading" && (
+        <>
+          <Loading size="sm" label="Finding this survey number on Bhunaksha’s map…" />
+          <div className="map-frame">
+            <div className="map-canvas skeleton" />
+          </div>
+        </>
+      )}
 
       {res.status === "error" && (
-        <p className="help" data-invalid="true">
-          The map could not be loaded. {res.message}
-        </p>
+        <Failure message={`The map could not be loaded. ${res.message}`} onRetry={res.retryable ? res.retry : undefined} />
       )}
 
       {data && !data.village && (

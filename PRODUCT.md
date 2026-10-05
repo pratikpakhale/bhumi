@@ -72,10 +72,18 @@ land-related. Bhumi does not use it.
 3. **Legible in bad conditions.** Sunlight, a cheap screen, a slow connection,
    Devanagari place names. Contrast, tap targets and font choice are decided
    against the worst case, not the demo.
-4. **Show the speed.** The portal is slow and looks slow. Bhumi is fast and must
-   look it: instant filtering, no layout jumps, skeletons instead of spinners,
-   transitions short enough to read as immediate.
-5. **Serious, because the stakes are.** Ownership is legal and contested. State
+4. **Show the speed, and name every wait.** The portal is slow and looks slow.
+   Bhumi is fast and must look it: instant filtering, no layout jumps,
+   skeletons where a list is coming. When the wait is the portal's, say so in
+   words ("Mahabhulekh is slow; this usually takes 5–20 seconds.") so it never looks like Bhumi froze.
+5. **Never ask for what can be supplied.** The portal wants a mobile number it
+   does nothing with; Bhumi makes one up on the device and never asks. A
+   single taluka, village or search result is picked without a tap. The places
+   a person uses most rise to the top of each list.
+6. **Plain words over the portal's.** "Where is the land?", not "Select
+   cascade"; Survey number, not `pin`. Every record type says in one line what
+   it is for, so a first-timer can pick the right one.
+7. **Serious, because the stakes are.** Ownership is legal and contested. State
    the portal's own "not for legal purpose" caveat plainly and never overclaim
    what a fetched record is.
 
