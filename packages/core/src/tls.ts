@@ -85,32 +85,59 @@ function presentedChain(socket: TLSSocket): X509Certificate[] {
   return chain;
 }
 
+/**
+ * Bhunaksha has been seen to sit on a new connection's ClientHello for 10–30s
+ * before answering (requests on an open socket stay quick), and undici gives up
+ * on a connect after 10s. Each client bounds its requests with its own deadline, so
+ * this is only a backstop above those.
+ */
+const CONNECT_TIMEOUT_MS = 60_000;
+
 // No session resumption: a resumed handshake presents no certificate, so there
 // would be nothing to check. Kept-alive sockets are still reused.
-const connectTls = buildConnector({ rejectUnauthorized: false, maxCachedSessions: 0 });
-
-const agent = new Agent({
-  connect(opts, callback) {
-    connectTls(opts, (err, socket) => {
-      if (err) return callback(err, null);
-      const tls = socket as TLSSocket;
-      // A fully verified connection — hostname included — needs nothing more.
-      if (tls.authorized || !tls.encrypted) return callback(null, socket);
-      const host = opts.servername || opts.hostname;
-      const problem =
-        tls.authorizationError?.toString() === "CERT_HAS_EXPIRED"
-          ? lapsedChainProblem(presentedChain(tls), host)
-          : String(tls.authorizationError);
-      if (!problem) return callback(null, socket);
-      socket.destroy();
-      callback(new Error(`TLS to ${host} refused: ${problem}`), null);
-    });
-  },
+const connectTls = buildConnector({
+  rejectUnauthorized: false,
+  maxCachedSessions: 0,
+  timeout: CONNECT_TIMEOUT_MS,
 });
 
+const connect: Agent.Options["connect"] = (opts, callback) => {
+  connectTls(opts, (err, socket) => {
+    if (err) return callback(err, null);
+    const tls = socket as TLSSocket;
+    // A fully verified connection — hostname included — needs nothing more.
+    if (tls.authorized || !tls.encrypted) return callback(null, socket);
+    const host = opts.servername || opts.hostname;
+    const problem =
+      tls.authorizationError?.toString() === "CERT_HAS_EXPIRED"
+        ? lapsedChainProblem(presentedChain(tls), host)
+        : String(tls.authorizationError);
+    if (!problem) return callback(null, socket);
+    socket.destroy();
+    callback(new Error(`TLS to ${host} refused: ${problem}`), null);
+  });
+};
+
+const fetchVia =
+  (dispatcher: Agent): typeof fetch =>
+  (input, init) =>
+    undiciFetch(input as Parameters<typeof undiciFetch>[0], {
+      ...(init as Parameters<typeof undiciFetch>[1]),
+      dispatcher,
+    }) as unknown as Promise<Response>;
+
 /** `fetch` for the portals: see the module comment. */
-export const portalFetch: typeof fetch = (input, init) =>
-  undiciFetch(input as Parameters<typeof undiciFetch>[0], {
-    ...(init as Parameters<typeof undiciFetch>[1]),
-    dispatcher: agent,
-  }) as unknown as Promise<Response>;
+export const portalFetch = fetchVia(new Agent({ connect }));
+
+/**
+ * `fetch` for Bhunaksha, which is slow to accept a connection but quick on one
+ * already open, so reusing a socket matters more than anywhere else.
+ *
+ * With undici's default of one request per socket, a request made the moment
+ * the last one's body is read finds that socket not yet released and opens
+ * another — a whole new handshake for every step of a lookup. Allowing a
+ * second request per socket lets it queue on the open one instead. POSTs, which
+ * the REST calls all are, still wait for the socket to be idle; only GETs (map
+ * tiles) are truly pipelined.
+ */
+export const bhunakshaFetch = fetchVia(new Agent({ connect, pipelining: 2 }));

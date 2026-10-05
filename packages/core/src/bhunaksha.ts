@@ -21,7 +21,7 @@ import { wktToGeoJSON } from "betterknown";
 import proj4 from "proj4";
 import { bhunakshaCode, parsePlotInfo, type Bounds, type MapPlot, type VillageMap } from "./map.js";
 import { MahabhulekhError } from "./types.js";
-import { portalFetch } from "./tls.js";
+import { bhunakshaFetch } from "./tls.js";
 
 const DEFAULT_BASE_URL = "https://mahabhunakasha.mahabhumi.gov.in/";
 /** Bhunaksha serves every state from one deployment; Maharashtra is 27. */
@@ -29,7 +29,7 @@ const STATE = "27";
 
 export interface BhunakshaOptions {
   baseUrl?: string;
-  /** Injected for testing; defaults to {@link portalFetch}. */
+  /** Injected for testing; defaults to {@link bhunakshaFetch}. */
   fetchImpl?: typeof fetch;
   /** Per-request ceiling, in ms. Defaults to 30s. */
   timeoutMs?: number;
@@ -43,7 +43,7 @@ export class BhunakshaClient {
 
   constructor(opts: BhunakshaOptions = {}) {
     this.baseUrl = opts.baseUrl ?? DEFAULT_BASE_URL;
-    this.fetchImpl = opts.fetchImpl ?? portalFetch;
+    this.fetchImpl = opts.fetchImpl ?? bhunakshaFetch;
     this.timeoutMs = opts.timeoutMs ?? 30_000;
   }
 
