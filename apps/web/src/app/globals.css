@@ -1920,4 +1920,15 @@ input[type="checkbox"] {
   .skeleton {
     background: var(--surface-sunken);
   }
+  /* A busy indicator's motion is its message: stopped, it reads as stuck. A
+     small turn or pulse in place is not the sweeping motion this preference
+     guards against, so these keep going, more gently. */
+  .spinner {
+    animation-duration: 1.2s !important;
+    animation-iteration-count: infinite !important;
+  }
+  .map-pending {
+    animation-duration: 1.8s !important;
+    animation-iteration-count: infinite !important;
+  }
 }
