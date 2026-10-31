@@ -49,15 +49,20 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
   // Survey and khata numbers are not phone numbers.
   formatDetection: { telephone: false, address: false },
-  appleWebApp: { title: SITE.name, statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: SITE.name, statusBarStyle: "default" },
   // The vector mark for every browser that takes one, a PNG for those that do
-  // not; the Apple touch icon comes from `apple-icon.tsx`.
+  // not. Listing icons here stops Next adding `apple-icon.tsx` on its own, and
+  // without it iOS puts a screenshot on the home screen, like a bookmark.
   icons: {
     icon: [
       { url: "/mark.svg", type: "image/svg+xml" },
       { url: "/icons/32.png", sizes: "32x32", type: "image/png" },
     ],
+    apple: [{ url: "/apple-icon", sizes: "180x180", type: "image/png" }],
   },
+  // Next now writes only the standard `mobile-web-app-capable`; iOS before 17
+  // opens a home-screen icon in its own window only with Apple's own name.
+  other: { "apple-mobile-web-app-capable": "yes" },
 };
 
 export const viewport: Viewport = {
@@ -72,7 +77,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${inter.variable} ${devanagari.variable}`} suppressHydrationWarning>
       <body>
-        <ThemeProvider attribute="data-theme" storageKey="bhumi_theme">
+        <ThemeProvider attribute="data-theme" storageKey="bhumi_theme" defaultTheme="system" enableSystem>
           <NuqsAdapter>{children}</NuqsAdapter>
           <Background />
         </ThemeProvider>

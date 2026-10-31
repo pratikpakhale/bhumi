@@ -65,7 +65,7 @@ function AccountLink({ current }: { current: boolean }) {
 }
 
 function ThemeToggle() {
-  const { resolvedTheme, setTheme } = useTheme();
+  const { resolvedTheme, systemTheme, setTheme } = useTheme();
   const hydrated = useHydrated();
   const mask = `theme-${useId().replace(/\W/g, "")}`;
   const dark = resolvedTheme === "dark";
@@ -83,7 +83,12 @@ function ThemeToggle() {
       className="theme-toggle"
       aria-label="Dark theme"
       aria-pressed={hydrated ? dark : undefined}
-      onClick={() => setTheme(dark ? "light" : "dark")}
+      onClick={() => {
+        const next = dark ? "light" : "dark";
+        // Back to the device's own theme once the choice matches it, so a
+        // phone that switches at sunset is followed again.
+        setTheme(next === systemTheme ? "system" : next);
+      }}
     >
       <svg className="theme-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
         <mask id={mask}>
