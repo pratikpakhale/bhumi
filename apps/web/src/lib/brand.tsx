@@ -12,9 +12,12 @@ export const BRAND = {
   /** `--accent` (light). The register's ink. */
   ink: "#0158b2",
   /** `--bg` (light). */
-  paper: "#f9f7f3",
+  paper: "#f5eee2",
   /** `--text` (light). */
   text: "#211d18",
+  text2: "#4c4741",
+  line: "#dcd5c7",
+  sunken: "#efe7d9",
   /** `--bg` (dark). */
   night: "#15120f",
   /** The one saffron field. Used in the mark and nowhere in the interface. */

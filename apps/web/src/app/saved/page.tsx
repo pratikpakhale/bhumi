@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { accountsConfigured } from "@/lib/accounts";
 import { SavedScreen } from "./saved";
 
 /** A list kept on one device: nothing here for a search engine. */
@@ -8,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <SavedScreen />;
+  return <SavedScreen accounts={accountsConfigured()} />;
 }

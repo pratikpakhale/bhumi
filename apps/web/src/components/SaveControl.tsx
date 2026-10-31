@@ -1,5 +1,6 @@
 "use client";
 
+import { Check } from "lucide-react";
 import { collection, entryId, useIsSaved, type Draft } from "@/lib/collection";
 
 /** Keep this subject, or drop it. Idempotent: the id comes from the subject. */
@@ -26,6 +27,9 @@ export function SaveControl({
       // The offline copy stays either way; it belongs to the record, not the list.
       onClick={() => (saved ? collection.forget(id) : collection.save(subject))}
     >
+      {saved && (
+        <Check size={16} aria-hidden="true" />
+      )}
       {saved ? "Saved" : "Save"}
     </button>
   );

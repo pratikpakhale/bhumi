@@ -1,4 +1,4 @@
-import type { Bounds } from "@bhumi/core";
+import type { Bounds, MapPlot } from "@bhumi/core";
 
 /** Below this zoom the village drawings are not shown, and plots cannot be picked. */
 export const DETAIL_ZOOM = 13;
@@ -48,22 +48,36 @@ export function coordinatesOf(bounds: Bounds): string {
   return `${lat}, ${lng}`;
 }
 
-/** Google Maps directions to the middle of a box. */
-export function directionsHref(bounds: Bounds): string {
+export function googleMapsHref(bounds: Bounds): string {
   const { lat, lng } = pinOf(bounds);
-  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+  return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
 }
 
 export function mapServiceLinks(bounds: Bounds, label: string): { name: string; href: string }[] {
   const { lat, lng } = pinOf(bounds);
   return [
-    { name: "Google Maps", href: `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` },
     { name: "Apple Maps", href: `https://maps.apple.com/?${new URLSearchParams({ ll: `${lat},${lng}`, q: label })}` },
     { name: "Google Earth", href: `https://earth.google.com/web/search/${lat},${lng}` },
     { name: "OpenStreetMap", href: `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=18/${lat}/${lng}` },
   ];
 }
 
-/** iPhone and iPad, including iPadOS, which reports itself as a Mac with a touch screen. */
-export const prefersAppleMaps = (userAgent: string, touchPoints: number): boolean =>
-  /iPhone|iPad/.test(userAgent) || (/Macintosh/.test(userAgent) && touchPoints > 1);
+export function outlinePath(geometry: MapPlot["geometry"], bounds: Bounds, width: number, height: number): string {
+  const [w, s, e, n] = bounds;
+  const squash = Math.cos((((s + n) / 2) * Math.PI) / 180);
+  const scale = Math.min(width / ((e - w) * squash), height / (n - s));
+  const dx = (width - (e - w) * squash * scale) / 2;
+  const dy = (height - (n - s) * scale) / 2;
+  const polygons = geometry.type === "Polygon" ? [geometry.coordinates] : geometry.coordinates;
+  return polygons
+    .flat()
+    .map(
+      (ring) =>
+        "M" +
+        ring
+          .map(([lng, lat]) => `${(dx + (lng! - w) * squash * scale).toFixed(1)} ${(dy + (n - lat!) * scale).toFixed(1)}`)
+          .join("L") +
+        "Z",
+    )
+    .join("");
+}

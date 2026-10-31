@@ -11,6 +11,7 @@ import { scope } from "@/lib/recents";
 import { DETAIL_ZOOM, centreOf, contains, unionOf } from "@/lib/geo";
 import type { Place } from "@/lib/collection";
 import type { TreeSnapshot } from "@/lib/tree";
+import { useFocusNext } from "@/lib/focus-next";
 import { Combobox } from "@/components/Combobox";
 import { PlotCard } from "@/components/PlotCard";
 import { Masthead, OfflineNotice } from "@/components/Chrome";
@@ -204,9 +205,19 @@ export function Explorer({ initial }: { initial: TreeSnapshot }) {
   }, [plot]);
 
   // --- Choices --------------------------------------------------------------
-  const onDistrict = (value: string) => setSp({ district: value, taluka: null, village: null, plot: null });
-  const onTaluka = (value: string) => setSp({ taluka: value, village: null, plot: null });
-  const onVillage = (value: string) => setSp({ village: value, plot: null });
+  const focusNext = useFocusNext();
+  const onDistrict = (value: string) => {
+    focusNext("m-taluka");
+    void setSp({ district: value, taluka: null, village: null, plot: null });
+  };
+  const onTaluka = (value: string) => {
+    focusNext("m-village");
+    void setSp({ taluka: value, village: null, plot: null });
+  };
+  const onVillage = (value: string) => {
+    focusNext("m-plot");
+    void setSp({ village: value, plot: null });
+  };
   const onPlot = (value: string) => setSp({ plot: value });
 
   const villageName =

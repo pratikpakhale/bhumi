@@ -8,6 +8,7 @@ import { normalizeDigits, type Option, type RecordType, type SearchMode } from "
 import { api, canRetry, errorMessage, type Locator } from "@/lib/client";
 import { RECORD_LABELS, isComplete, lookupFrom, recordHref, searchParams } from "@/lib/search-params";
 import { mapHref } from "@/lib/map-params";
+import { useFocusNext } from "@/lib/focus-next";
 import { useResource, dataOf, firstFailure, type Resource } from "@/lib/resource";
 import { scope } from "@/lib/recents";
 import { lookupFor, subjectOf, type Place } from "@/lib/collection";
@@ -16,7 +17,7 @@ import { SITE } from "@/lib/site";
 import { Combobox } from "@/components/Combobox";
 import { Segmented } from "@/components/Segmented";
 import { Results } from "@/components/Results";
-import { SavedShortlist, SharedCollection } from "@/components/Collection";
+import { SharedCollection } from "@/components/Collection";
 import { CommandPalette } from "@/components/CommandPalette";
 import { Masthead, OfflineNotice, SiteFooter } from "@/components/Chrome";
 import { Failure, Loading, PORTAL_STAGES, SkeletonRows } from "@/components/Status";
@@ -168,12 +169,11 @@ export function Home({ initial }: { initial: TreeSnapshot }) {
 
   // --- Choices: thin URL writers; the resources above react ------------------
 
-  /** Where focus goes once the next field is ready. Keyboard users only. */
-  const focusNext = useRef<string | null>(null);
+  const focusNext = useFocusNext();
 
   function pickType(rt: RecordType) {
     if (rt === recordType) return;
-    focusNext.current = null;
+    focusNext(null);
     // Switching between 7/12 and 8A keeps the village: they share one cascade,
     // and looking up the same place in both registers is the common case.
     if (sameCascade(rt, recordType)) {
@@ -184,15 +184,15 @@ export function Home({ initial }: { initial: TreeSnapshot }) {
   }
 
   const onDistrict = (value: string) => {
-    focusNext.current = "f-taluka";
+    focusNext("f-taluka");
     void setSp({ district: value, taluka: null, village: null, ...CLEARED });
   };
   const onTaluka = (value: string) => {
-    focusNext.current = "f-village";
+    focusNext("f-village");
     void setSp({ taluka: value, village: null, ...CLEARED });
   };
   const onVillage = (value: string) => {
-    focusNext.current = "f-query";
+    focusNext("f-query");
     void setSp({ village: value, ...CLEARED });
   };
 
@@ -205,26 +205,16 @@ export function Home({ initial }: { initial: TreeSnapshot }) {
   // user took, so it replaces rather than pushes.
   useEffect(() => {
     if (district && !taluka && talukas.length === 1) {
-      focusNext.current = "f-village";
+      focusNext("f-village");
       void setSp({ taluka: talukas[0]!.value, village: null, ...CLEARED }, { history: "replace" });
     }
-  }, [district, taluka, talukas, setSp]);
+  }, [district, taluka, talukas, setSp, focusNext]);
   useEffect(() => {
     if (taluka && !village && villages.length === 1) {
-      focusNext.current = "f-query";
+      focusNext("f-query");
       void setSp({ village: villages[0]!.value, ...CLEARED }, { history: "replace" });
     }
-  }, [taluka, village, villages, setSp]);
-
-  // Move on to the next field the moment it can take input.
-  useEffect(() => {
-    const id = focusNext.current;
-    if (!id) return;
-    const el = document.getElementById(id) as HTMLInputElement | null;
-    if (!el || el.disabled) return;
-    focusNext.current = null;
-    if (finePointer()) el.focus();
-  });
+  }, [taluka, village, villages, setSp, focusNext]);
 
   // --- Live portal results --------------------------------------------------
   const [results, setResults] = useState<Resource<Option[]>>({ status: "idle" });
@@ -380,7 +370,6 @@ export function Home({ initial }: { initial: TreeSnapshot }) {
   const searchError = results.status === "error" ? results : null;
   const noVillages = villagesRes.status === "ready" && villages.length === 0;
   const isPc = recordType === "PropertyCard";
-  const latinName = mode === "name" && /[a-z]/i.test(draft);
   const about = TYPES.find((t) => t.key === recordType)?.about;
   const rural = sameCascade(recordType, "7/12");
   const nameTypesLoading = mode === "name" && nameTypesRes.status === "loading";
@@ -402,8 +391,6 @@ export function Home({ initial }: { initial: TreeSnapshot }) {
         <Suspense fallback={null}>
           <SharedCollection />
         </Suspense>
-
-        <SavedShortlist />
 
         <section className="step" aria-labelledby="step-1">
           <div className="step-head">
@@ -511,10 +498,7 @@ export function Home({ initial }: { initial: TreeSnapshot }) {
             </div>
 
             {contextRes.status === "loading" && (
-              <Loading
-                label="Getting this village’s search options…"
-                stages={[[5, "The first visit to a village asks Mahabhulekh; after that it is instant."]]}
-              />
+              <Loading label="Getting this village’s search options…" />
             )}
 
             {ctx && !isKjp && (
@@ -539,7 +523,7 @@ export function Home({ initial }: { initial: TreeSnapshot }) {
                   {needsQuery ? (
                     <label className="lbl" htmlFor="f-query">
                       {mode === "name"
-                        ? `${gloss(subTypeLabel ?? "आडनाव")} (in Marathi)`
+                        ? gloss(subTypeLabel ?? "आडनाव")
                         : gloss(subTypeLabel ?? (recordType === "8A" ? "खाते क्रमांक" : "सर्वे नंबर"))}
                     </label>
                   ) : (
@@ -580,11 +564,9 @@ export function Home({ initial }: { initial: TreeSnapshot }) {
                     {searchError ? null : noResults ? (
                       <p className="help" data-invalid="true">
                         {mode === "name"
-                          ? "No one by that name here. Names must be typed in Marathi, as on the record — try just the surname."
+                          ? "No one by that name here. Try just the surname."
                           : "Nothing matched. Type the start of the number: 12 finds 12, 120, 12/1…"}
                       </p>
-                    ) : latinName ? (
-                      <p className="help">The portal only matches names in Marathi — type पाटील, not Patil.</p>
                     ) : mode === "number" && needsQuery && !searching ? (
                       <p className="help">Type the start of the number; every sub-division is listed.</p>
                     ) : null}

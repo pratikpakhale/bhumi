@@ -5,11 +5,10 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { RECORD_LABELS, recordHref } from "@/lib/search-params";
 import {
+  addressOf,
   collection,
   lookupFor,
-  placeOf,
   titleOf,
-  useCollection,
   viewOf,
   type Entry,
 } from "@/lib/collection";
@@ -17,53 +16,28 @@ import { COLLECTION_PARAM, decodeCollection } from "@/lib/collection-link";
 import { errorMessage } from "@/lib/client";
 import { Failure } from "@/components/Status";
 
-/** Rows the home screen offers before pointing at the Saved page. */
-const SHORTLIST = 5;
-
 /**
- * The first few saved records, on the search screen.
+ * One saved record as a link to it.
  *
- * For a returning user this list *is* the shortest path to a record, and the
- * search below it is the fallback for something they have not kept yet.
- * Managing the list — renaming, reordering, sharing — is the Saved page's job.
+ * Under a village heading the place would only repeat it, so the second line
+ * says instead which survey or khata a nickname stands for, and a record with
+ * no name of its own is titled by its address ("Survey 88") rather than a bare
+ * number.
  */
-export function SavedShortlist() {
-  const entries = useCollection();
-  if (entries.length === 0) return null;
-  return (
-    <section className="saved" aria-labelledby="saved-title">
-      <div className="saved-head">
-        <h2 className="step-title" id="saved-title">
-          Your saved records
-        </h2>
-        <Link className="step-link" href="/saved">
-          {entries.length > SHORTLIST ? `All ${entries.length}` : "Manage"}
-        </Link>
-      </div>
-      <ul className="saved-list">
-        {entries.slice(0, SHORTLIST).map((entry) => (
-          <li key={entry.id}>
-            <SavedRow entry={entry} />
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-/** One saved record as a link to it. */
-export function SavedRow({ entry, offline }: { entry: Entry; offline?: boolean }) {
+export function SavedRow({ entry }: { entry: Entry }) {
+  const named = !!(entry.nickname?.trim() || entry.name);
+  const title = named ? titleOf(entry) : addressOf(entry);
+  const detail = named ? addressOf(entry) : null;
   return (
     <Link className="saved-row" href={recordHref(lookupFor(entry))}>
       <span className="saved-row-title" lang="mr">
-        {titleOf(entry)}
+        {title}
       </span>
-      {/* Offline sits with the place, not in the type pill, which on a phone
-          would take the width the Marathi name needs. */}
-      <span className="saved-row-path">
-        <span lang="mr">{placeOf(entry)}</span>
-        {offline && " · Offline copy"}
-      </span>
+      {detail && (
+        <span className="saved-row-path" lang="mr">
+          {detail}
+        </span>
+      )}
       <span className="saved-row-type">{RECORD_LABELS[viewOf(entry)]}</span>
     </Link>
   );

@@ -30,9 +30,24 @@ over the imagery. Tapping a field names its survey number and the khatas holding
 each sub-division, with links to their 7/12s and 8As, and taps across a village
 line find the neighbouring village's field.
 
+A plot opens in Google Maps in one tap. Its More menu copies the coordinates,
+and for surveyors saves the boundary as KML (Google Earth, GPS apps) or GeoJSON
+(QGIS), opens the outline on geojson.io, or pins it in other map apps. A shared
+plot or 7/12 link previews with the plot's own outline and area
+(`/api/og/plot`), drawn from the same cached Bhunaksha answer.
+
 Records can be saved on the device, with no account: `/saved` lists them,
 renames, reorders, groups by village, and shares the whole list as one link or
-file. Each record keeps its last fetched copy so it opens offline, and the
+file. An optional account at `/account` (a username and password, nothing
+else) keeps the list in step across devices (see
+`docs/adr/0001-accounts-on-r2.md`). `/settings` installs the app and shows, and
+clears, what Bhumi keeps on the device.
+
+Bhumi installs as an app (Add to Home Screen, or Install in Chrome and Edge).
+Its service worker (`apps/web/src/app/sw.ts`, built by Serwist in production
+only) keeps the screens themselves, so an installed Bhumi opens with no signal
+and saved records show their last copy. Account, sync and live portal requests
+are never cached. Each record keeps its last fetched copy so it opens offline, and the
 places used most rise to the top of every dropdown.
 
 7/12 and 8A are verified end-to-end against the live portal. Property Card uses
@@ -56,9 +71,15 @@ apps/web        Next.js app
   api/*           route handlers over a per-browser session store
   app/page.tsx    the search UI
   app/record/*    the document view
-  app/saved/*     saved records and on-device data
+  app/saved/*     saved records: the list, edit, share, backup
+  app/account/*   the optional account that syncs the saved list
+  app/settings/*  install, and what is kept on this device
+  app/sw.ts       the service worker: screens and map kept for offline use
+  api/account     sign up, sign in, sign out
+  api/collection  the account's copy of the saved list, written compare-and-swap
   app/map/*       the map explorer
-  lib/brand.tsx   the mark, drawn once for the UI, icons and social card
+  lib/brand.tsx   the mark, drawn once for the UI, icons and social cards
+  api/og/plot     the link preview that draws a shared plot
 ```
 
 The web app keeps one live `MahabhulekhClient` per browser (keyed by an httpOnly
@@ -74,6 +95,18 @@ pnpm build        # build core + web
 pnpm typecheck    # needs core built first: web reads its dist
 pnpm lint
 pnpm test
+```
+
+Accounts need an R2 bucket and a session key in `apps/web/.env.local` (and the
+same in the Vercel project); without them everything else works and no account
+is offered:
+
+```bash
+R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+R2_ACCESS_KEY_ID=...        # an R2 token scoped to the bucket, Object Read & Write
+R2_SECRET_ACCESS_KEY=...
+R2_BUCKET=bhumi
+SESSION_SECRET=...          # 32+ random characters; changing it signs everyone out
 ```
 
 `.github/workflows/ci.yml` runs the same checks on every push and pull request.

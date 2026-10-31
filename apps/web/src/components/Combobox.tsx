@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import type { Option } from "@bhumi/core";
 import { remember, useRecents } from "@/lib/recents";
 
@@ -230,15 +231,7 @@ export function Combobox({
       {loading ? (
         <span className="combo-chevron spinner" aria-hidden="true" />
       ) : (
-        <svg className="combo-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-          <path
-            d="M2.5 4.5 6 8l3.5-3.5"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        <ChevronDown className="combo-chevron" size={14} aria-hidden="true" />
       )}
 
       <div

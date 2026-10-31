@@ -12,6 +12,8 @@ import { RECORD_TYPES, SEARCH_MODES } from "./search-params";
  *
  * - **400** — the request itself is malformed. Never retryable; a bug or a
  *   hand-edited link.
+ * - **401 / 409 / 429** — an account request was refused ({@link Refused}):
+ *   not signed in or a wrong password, a name already taken, too many tries.
  * - **422 / 503** — the portal answered with a refusal, or failed to answer.
  *   Only the second is worth retrying.
  * - **500** — anything else. Its message is never sent: an unexpected error's
@@ -21,6 +23,16 @@ import { RECORD_TYPES, SEARCH_MODES } from "./search-params";
 /** A request this server will not act on. */
 export class BadRequest extends Error {}
 
+/** A well-formed account request the server turned down, with a message for the person. */
+export class Refused extends Error {
+  constructor(
+    message: string,
+    readonly status: 401 | 409 | 429,
+  ) {
+    super(message);
+  }
+}
+
 export async function withHandler<T>(fn: () => Promise<T>): Promise<NextResponse> {
   try {
     return NextResponse.json(await fn());
@@ -28,6 +40,9 @@ export async function withHandler<T>(fn: () => Promise<T>): Promise<NextResponse
     if (err instanceof BadRequest || err instanceof z.ZodError) {
       const message = err instanceof BadRequest ? err.message : "That request is not one Bhumi understands.";
       return NextResponse.json({ error: message, retryable: false }, { status: 400 });
+    }
+    if (err instanceof Refused) {
+      return NextResponse.json({ error: err.message, retryable: false }, { status: err.status });
     }
     if (err instanceof MahabhulekhError) {
       // 503 marks the portal being unwell (worth retrying); 422 is its answer.
@@ -115,3 +130,30 @@ export function cacheForADay(res: NextResponse): NextResponse {
   if (res.ok) res.headers.set("Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
   return res;
 }
+
+// ── Accounts ─────────────────────────────────────────────────────────────────
+//
+// Only the shape is checked here; the rules a person can break — how long a
+// username or password may be — are checked in `accounts.ts`, which can say
+// which one in words.
+
+export const accountBody = z.discriminatedUnion("action", [
+  z.object({ action: z.enum(["sign-in", "sign-up"]), username: z.string().max(100), password: z.string().max(1000) }),
+  z.object({ action: z.literal("sign-out") }),
+]);
+
+/**
+ * A collection as the client keeps it. Entries stay opaque — the client
+ * validates every entry it reads, from any source — and are only bounded.
+ */
+const collectionState = z.object({
+  entries: z.array(z.record(z.string(), z.unknown())).max(5000),
+  removed: z.record(z.string().max(300), z.string().max(40)),
+  orderedAt: z.string().max(40),
+});
+
+export const collectionBody = z.object({
+  collection: collectionState,
+  /** The version the client merged against; null when the account had none. */
+  etag: z.string().max(200).nullable(),
+});

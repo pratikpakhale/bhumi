@@ -24,6 +24,7 @@ export default function manifest(): MetadataRoute.Manifest {
     shortcuts: [
       { name: "Saved records", url: "/saved" },
       { name: "Map", url: "/map" },
+      { name: "Account", url: "/account" },
     ],
   };
 }

@@ -7,7 +7,7 @@ export default function NotFound() {
       <Masthead />
       <main className="gate">
         <h1 className="intro-title">Page not found</h1>
-        <p className="lede">The link may be incomplete. Records are found from the search page.</p>
+        <p className="lede">The link may be incomplete.</p>
         <div className="step-actions">
           <Link className="btn btn-primary" href="/">
             Search land records

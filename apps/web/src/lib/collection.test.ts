@@ -300,3 +300,90 @@ describe("removal", () => {
     expect(collection.all()).toHaveLength(1);
   });
 });
+
+describe("syncing two copies", () => {
+  const T0 = "2026-01-01T00:00:00.000Z";
+  const T1 = "2026-01-02T00:00:00.000Z";
+  const T2 = "2026-01-03T00:00:00.000Z";
+
+  async function two() {
+    const m = await load();
+    const entry = (code: string, updatedAt = T0, nickname?: string) => ({
+      id: m.entryId(PLACE, "parcel", code),
+      schema: 2 as const,
+      kind: "parcel" as const,
+      code,
+      place: PLACE,
+      addedAt: T0,
+      updatedAt,
+      nickname,
+    });
+    const state = (entries: ReturnType<typeof entry>[], removed = {}, orderedAt = T0) => ({ entries, removed, orderedAt });
+    return { ...m, entry, state };
+  }
+
+  it("keeps everything either side has", async () => {
+    const { combine, entry, state } = await two();
+    const merged = combine(state([entry("1")]), state([entry("2")]));
+    expect(merged.entries.map((e) => e.code)).toEqual(["1", "2"]);
+  });
+
+  it("takes the newer edit of the same land, whichever side it is on", async () => {
+    const { combine, entry, state } = await two();
+    const a = state([entry("1", T1, "old")]);
+    const b = state([entry("1", T2, "new")]);
+    expect(combine(a, b).entries[0]!.nickname).toBe("new");
+    expect(combine(b, a).entries[0]!.nickname).toBe("new");
+  });
+
+  it("does not bring back a land removed on another device", async () => {
+    const { combine, entry, state } = await two();
+    const phone = state([entry("1"), entry("2")]);
+    const laptop = state([entry("2")], { [entry("1").id]: T1 });
+    const merged = combine(phone, laptop);
+    expect(merged.entries.map((e) => e.code)).toEqual(["2"]);
+    expect(merged.removed).toEqual({ [entry("1").id]: T1 });
+  });
+
+  it("keeps a land saved again after it was removed", async () => {
+    const { combine, entry, state } = await two();
+    const merged = combine(state([entry("1", T2)]), state([], { [entry("1").id]: T1 }));
+    expect(merged.entries.map((e) => e.code)).toEqual(["1"]);
+    expect(merged.removed).toEqual({});
+  });
+
+  it("takes the order set by hand most recently, then adds what it has not seen", async () => {
+    const { combine, entry, state } = await two();
+    const reordered = state([entry("2"), entry("1")], {}, T2);
+    const added = state([entry("1"), entry("2"), entry("3")], {}, T1);
+    expect(combine(added, reordered).entries.map((e) => e.code)).toEqual(["2", "1", "3"]);
+  });
+
+  it("stamps removals in the store, and lifts them when a land is saved again", async () => {
+    const { collection } = await load();
+    const entry = collection.save({ kind: "parcel", code: "1", place: PLACE });
+    collection.forget(entry.id);
+    expect(Object.keys(collection.snapshot().removed)).toEqual([entry.id]);
+    collection.save({ kind: "parcel", code: "1", place: PLACE });
+    expect(collection.snapshot().removed).toEqual({});
+  });
+
+  it("does not count leaving a nickname as it was as an edit", async () => {
+    const { collection } = await load();
+    const entry = collection.save({ kind: "parcel", code: "1", place: PLACE, nickname: "शेत" });
+    const before = collection.get(entry.id)!.updatedAt;
+    await new Promise((r) => setTimeout(r, 2));
+    collection.update(entry.id, { nickname: "शेत" });
+    expect(collection.get(entry.id)!.updatedAt).toBe(before);
+  });
+
+  it("reads a v2 list, which had nothing to merge by", async () => {
+    const { collection } = await load({
+      bhumi_collection_v2: [
+        { id: `${PLACE.district}|${PLACE.taluka}|${PLACE.village}|parcel|1`, schema: 2, kind: "parcel", code: "1", place: PLACE, addedAt: "2025-01-01T00:00:00.000Z" },
+      ],
+    });
+    expect(collection.all().map((e) => e.code)).toEqual(["1"]);
+    expect(collection.snapshot().removed).toEqual({});
+  });
+});

@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { lookupKey } from "@/lib/search-params";
+import { ArrowDown, ArrowUp } from "lucide-react";
 import {
   collection,
-  lookupFor,
   placeOf,
   titleOf,
   useCollection,
@@ -13,11 +12,11 @@ import {
   type Removed,
 } from "@/lib/collection";
 import { collectionUrl } from "@/lib/collection-link";
-import { copyIndex, forgetAllCopies } from "@/lib/copies";
-import { forgetAll as forgetRecents } from "@/lib/recents";
-import { renewMobile, storedMobile } from "@/lib/record-request";
 import { shareLink } from "@/lib/share";
 import { errorMessage } from "@/lib/client";
+import { useAccount } from "@/lib/sync";
+import { useHydrated } from "@/lib/hydrated";
+import { Menu } from "@/components/Menu";
 import { SavedRow } from "@/components/Collection";
 import { SkeletonRows } from "@/components/Status";
 import { Masthead, OfflineNotice, SiteFooter } from "@/components/Chrome";
@@ -25,29 +24,28 @@ import { Masthead, OfflineNotice, SiteFooter } from "@/components/Chrome";
 /** How long a toast — and with it Undo after a removal — stays up. */
 const TOAST_MS = 10_000;
 
-const noSubscribe = () => () => {};
+/** Below this many, every record is in view and a search box is one more thing to read past. */
+const FILTER_FROM = 7;
 
-/** False until hydration is over, so a list not yet read is never shown as empty. */
-const useHydrated = () => useSyncExternalStore(noSubscribe, () => true, () => false);
-
-const size = (bytes: number) =>
-  bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /**
- * Everything this device keeps, and the controls over it.
+ * The saved records, and nothing else.
  *
- * The list is the user's own: renamed, ordered and pruned by them, moved to
- * another phone by link or file. Below it is the rest of what Bhumi stores
- * here — offline copies, remembered places, the number sent to the portal —
- * each with its own way to clear it, because "it stays on your device" is only
- * a promise if the device's owner can see and empty it.
+ * Coming back to open a record is nearly every visit, so the records are the
+ * page and open in one tap. Managing them (rename, reorder, remove) is behind
+ * Edit; what is done with the whole list (send it, back it up, restore it) is
+ * behind More. The account and this device's settings have screens of their
+ * own; this one only says, in a line, when the list is also in an account.
  */
-export function SavedScreen() {
+export function SavedScreen({ accounts }: { accounts: boolean }) {
   const entries = useCollection();
   const hydrated = useHydrated();
+  const { username } = useAccount();
   const [filter, setFilter] = useState("");
   const [editing, setEditing] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+
   // One toast at a time, fixed to the screen: a note from the bulk bar at the
   // top of a long list would otherwise land below it, out of sight.
   const [toast, setToast] = useState<{ text: string; removed?: Removed[] } | null>(null);
@@ -59,18 +57,18 @@ export function SavedScreen() {
     toastTimer.current = setTimeout(() => setToast(null), TOAST_MS);
   }
 
-  const [offline, setOffline] = useState<{ keys: Set<string>; bytes: number } | null>(null);
-  useEffect(() => {
-    void copyIndex().then(setOffline);
-  }, []);
+  const importer = useImport(say);
 
-  const shown = match(entries, filter);
+  const searchable = entries.length >= FILTER_FROM;
+  const filtering = searchable && !!filter.trim();
+  const shown = filtering ? match(entries, filter) : entries;
   const groups = byVillage(shown);
   // Read through what is on screen, so neither a removed entry nor one the
   // filter hides is acted on unseen.
   const chosen = shown.filter((e) => selected.has(e.id));
   const allChosen = shown.length > 0 && chosen.length === shown.length;
-  const isOffline = (e: Entry) => !!offline?.keys.has(lookupKey(lookupFor(e)));
+  const villages = new Set(entries.map(placeOf)).size;
+  const empty = hydrated && entries.length === 0;
 
   function remove(ids: string[]) {
     const removed = collection.forget(ids);
@@ -82,22 +80,12 @@ export function SavedScreen() {
 
   async function share(list: Entry[]) {
     try {
-      const how = await shareLink("Saved land records — Bhumi", await collectionUrl(list));
-      if (how === "copied") say("Link copied. Anyone who opens it can add these to their own list.");
+      const how = await shareLink("Saved land records, Bhumi", await collectionUrl(list));
+      if (how === "copied") say("Link copied. Whoever opens it can add these to their own list.");
       if (how === "failed") say("Could not copy the link.");
     } catch {
       say("Could not make a link for these records.");
     }
-  }
-
-  function exportFile(list: Entry[]) {
-    const blob = new Blob([JSON.stringify(collection.toFile(list), null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `bhumi-saved-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 10_000);
   }
 
   return (
@@ -108,147 +96,209 @@ export function SavedScreen() {
 
         <div className="intro">
           <h1 className="intro-title">Saved records</h1>
-          <p className="lede">Kept on this device only. Open one, rename it, or send the list to another phone.</p>
+          <p className="lede">
+            {!hydrated || empty ? (
+              "Records you save are kept here, ready to open, even with no signal."
+            ) : username ? (
+              <>
+                Kept on this device and in <Link href="/account">your account</Link>. They open even with no signal.
+              </>
+            ) : (
+              "Kept on this device. They open even with no signal."
+            )}
+          </p>
         </div>
 
-        {!hydrated ? (
-          <SkeletonRows />
-        ) : entries.length === 0 ? (
-          <div className="empty">
-            <p>Nothing saved yet. Find a record and press Save; it will be here, ready to open — even offline.</p>
-            <div className="step-actions">
-              <Link className="btn btn-primary" href="/">
-                Find a record
-              </Link>
-              <ImportButton onDone={say} />
-            </div>
-          </div>
-        ) : (
-          <section className="saved" aria-labelledby="saved-list-title">
-            <h2 className="sr-only" id="saved-list-title">
-              Your list
-            </h2>
-            <div className="saved-bar">
-              <input
-                className="inp"
-                type="search"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                placeholder="Name, village or number"
-                aria-label="Filter saved records"
-                autoComplete="off"
-              />
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => {
-                  setEditing((on) => !on);
-                  setSelected(new Set());
-                }}
-              >
-                {editing ? "Done" : "Edit"}
-              </button>
-            </div>
-
-            {editing && (
-              <div className="saved-select" role="group" aria-label="With selected">
-                <label className="check">
-                  <input
-                    type="checkbox"
-                    checked={allChosen}
-                    ref={(box) => {
-                      if (box) box.indeterminate = chosen.length > 0 && !allChosen;
-                    }}
-                    onChange={(e) => setSelected(e.target.checked ? new Set(shown.map((x) => x.id)) : new Set())}
-                  />
-                  {chosen.length ? `${chosen.length} selected` : "Select all"}
-                </label>
-                <button type="button" className="btn btn-ghost btn-sm" disabled={!chosen.length} onClick={() => void share(chosen)}>
-                  Share
-                </button>
-                <button type="button" className="btn btn-ghost btn-sm" disabled={!chosen.length} onClick={() => exportFile(chosen)}>
-                  Export
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-danger btn-sm"
-                  disabled={!chosen.length}
-                  onClick={() => remove(chosen.map((e) => e.id))}
-                >
-                  Remove
+        <section className="step" aria-labelledby="saved-list-title">
+          {!hydrated ? (
+            <>
+              <h2 className="sr-only" id="saved-list-title">
+                Your records
+              </h2>
+              <SkeletonRows />
+            </>
+          ) : empty ? (
+            <div className="saved-empty">
+              <h2 className="sr-only" id="saved-list-title">
+                Your records
+              </h2>
+              <p>Nothing saved yet. Open a record and press Save, and it will be here.</p>
+              <div className="step-actions">
+                <Link className="btn btn-primary" href="/">
+                  Find a record
+                </Link>
+                <button type="button" className="btn btn-ghost" onClick={importer.open}>
+                  Import a backup
                 </button>
               </div>
-            )}
-
-            {shown.length === 0 && <p className="help">Nothing saved matches “{filter.trim()}”.</p>}
-            {editing && shown.length > 0 && !!filter.trim() && <p className="help">Clear the filter to reorder.</p>}
-
-            {editing ? (
-              <ul className="saved-list">
-                {shown.map((entry) => (
-                  <EditRow
-                    key={entry.id}
-                    entry={entry}
-                    index={entries.indexOf(entry)}
-                    total={entries.length}
-                    // Moving within a filtered list would skip rows the user cannot see.
-                    canMove={!filter.trim()}
-                    selected={selected.has(entry.id)}
-                    onSelect={(on) =>
-                      setSelected((was) => {
-                        const next = new Set(was);
-                        if (on) next.add(entry.id);
-                        else next.delete(entry.id);
-                        return next;
-                      })
-                    }
-                    onRemove={() => remove([entry.id])}
-                  />
-                ))}
-              </ul>
-            ) : (
-              groups.map(([village, list]) => (
-                <div key={village} className="saved-group">
-                  {groups.length > 1 && (
-                    <h3 className="saved-group-title" lang="mr">
-                      {village}
-                    </h3>
-                  )}
-                  <ul className="saved-list">
-                    {list.map((entry) => (
-                      <li key={entry.id}>
-                        <SavedRow entry={entry} offline={isOffline(entry)} />
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))
-            )}
-
-            <div className="step-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => void share(entries)}>
-                Share list
-              </button>
-              <button type="button" className="btn btn-ghost" onClick={() => exportFile(entries)}>
-                Export file
-              </button>
-              <ImportButton onDone={say} />
+              {accounts && !username && (
+                <p className="help">
+                  Saved records on another phone? <Link href="/account">Sign in</Link> to bring them here.
+                </p>
+              )}
             </div>
-          </section>
-        )}
+          ) : (
+            <>
+              <div className="step-head">
+                <h2 className="saved-summary" id="saved-list-title">
+                  {plural(entries.length, "record")}
+                  {villages > 1 && ` in ${villages} villages`}
+                </h2>
+                <div className="saved-tools">
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => {
+                      setEditing((on) => !on);
+                      setSelected(new Set());
+                    }}
+                  >
+                    {editing ? "Done" : "Edit"}
+                  </button>
+                  <Menu title="Saved records" className="btn btn-ghost btn-sm">
+                    {(close) => (
+                      <>
+                        <button
+                          type="button"
+                          className="menu-opt"
+                          onClick={() => {
+                            close();
+                            void share(entries);
+                          }}
+                        >
+                          <span className="menu-opt-text">
+                            Share the list
+                            <span className="menu-opt-meta">As a link, for WhatsApp or SMS</span>
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          className="menu-opt"
+                          onClick={() => {
+                            close();
+                            exportFile(entries);
+                          }}
+                        >
+                          <span className="menu-opt-text">
+                            Back up to a file
+                            <span className="menu-opt-meta">To keep, or to move to a phone with no account</span>
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          className="menu-opt"
+                          onClick={() => {
+                            close();
+                            importer.open();
+                          }}
+                        >
+                          <span className="menu-opt-text">
+                            Import a backup
+                            <span className="menu-opt-meta">Adds its records to this list</span>
+                          </span>
+                        </button>
+                      </>
+                    )}
+                  </Menu>
+                </div>
+              </div>
 
-        <DeviceData
-          offline={offline}
-          onClearCopies={async () => {
-            try {
-              await forgetAllCopies();
-            } catch {
-              say("Could not clear the offline copies.");
-            }
-            setOffline(await copyIndex());
-          }}
-        />
+              {searchable && (
+                <input
+                  className="inp"
+                  type="search"
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                  placeholder="Find by name, village or number"
+                  aria-label="Find a saved record"
+                  autoComplete="off"
+                  enterKeyHint="search"
+                />
+              )}
+
+              {editing && (
+                <div className="saved-select" role="group" aria-label="With the selected records">
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      checked={allChosen}
+                      ref={(box) => {
+                        if (box) box.indeterminate = chosen.length > 0 && !allChosen;
+                      }}
+                      onChange={(e) => setSelected(e.target.checked ? new Set(shown.map((x) => x.id)) : new Set())}
+                    />
+                    {chosen.length ? `${chosen.length} selected` : "Select all"}
+                  </label>
+                  <button type="button" className="btn btn-ghost btn-sm" disabled={!chosen.length} onClick={() => void share(chosen)}>
+                    Share
+                  </button>
+                  <button type="button" className="btn btn-ghost btn-sm" disabled={!chosen.length} onClick={() => exportFile(chosen)}>
+                    Back up
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-danger btn-sm"
+                    disabled={!chosen.length}
+                    onClick={() => remove(chosen.map((e) => e.id))}
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+
+              {shown.length === 0 && <p className="help">No saved record matches “{filter.trim()}”.</p>}
+              {editing && filtering && shown.length > 0 && <p className="help">Clear the search to reorder.</p>}
+
+              {editing ? (
+                <ul className="saved-list">
+                  {shown.map((entry) => (
+                    <EditRow
+                      key={entry.id}
+                      entry={entry}
+                      index={entries.indexOf(entry)}
+                      total={entries.length}
+                      // Moving within a filtered list would skip rows the user cannot see.
+                      canMove={!filtering}
+                      selected={selected.has(entry.id)}
+                      onSelect={(on) =>
+                        setSelected((was) => {
+                          const next = new Set(was);
+                          if (on) next.add(entry.id);
+                          else next.delete(entry.id);
+                          return next;
+                        })
+                      }
+                      onRemove={() => remove([entry.id])}
+                    />
+                  ))}
+                </ul>
+              ) : (
+                <div>
+                  {groups.map(([village, list]) => (
+                    <div key={village} className="saved-group">
+                      <h3 className="saved-group-title" lang="mr">
+                        {list[0]!.place.villageName}
+                        <span>
+                          {[list[0]!.place.talukaName, list[0]!.place.districtName].filter(Boolean).join(", ")}
+                        </span>
+                      </h3>
+                      <ul className="saved-list">
+                        {list.map((entry) => (
+                          <li key={entry.id}>
+                            <SavedRow entry={entry} />
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </section>
       </main>
+
+      {importer.input}
 
       {/* Mounted for the page's life so every new toast is announced. */}
       <div role="status">
@@ -275,6 +325,55 @@ export function SavedScreen() {
       <SiteFooter />
     </div>
   );
+}
+
+/** Save records as a backup file, the same format a shared link carries. */
+function exportFile(list: Entry[]) {
+  const blob = new Blob([JSON.stringify(collection.toFile(list), null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `bhumi-saved-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+/**
+ * Importing a backup: a hidden file input and a way to open it. The input
+ * lives outside any menu, so closing the menu does not take the picker with it.
+ */
+function useImport(onDone: (note: string) => void) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  async function importFile(file: File) {
+    try {
+      const { added, skipped } = collection.merge(collection.fromFile(await file.text()));
+      onDone(
+        added === 0
+          ? "Everything in that file is already saved."
+          : `Added ${plural(added, "record")}${skipped ? `; ${skipped} were already saved` : ""}.`,
+      );
+    } catch (e) {
+      onDone(errorMessage(e));
+    }
+  }
+  return {
+    open: () => fileRef.current?.click(),
+    input: (
+      <input
+        ref={fileRef}
+        type="file"
+        accept="application/json,.json"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (file) void importFile(file);
+        }}
+      />
+    ),
+  };
 }
 
 /** Rename, reorder, select and remove. Reorder is buttons, not drag: keyboard-reachable. */
@@ -329,7 +428,7 @@ function EditRow({
           aria-label={`Move ${titleOf(entry)} up`}
           onClick={() => collection.move(entry.id, index - 1)}
         >
-          ↑
+          <ArrowUp size={16} aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -338,132 +437,13 @@ function EditRow({
           aria-label={`Move ${titleOf(entry)} down`}
           onClick={() => collection.move(entry.id, index + 1)}
         >
-          ↓
+          <ArrowDown size={16} aria-hidden="true" />
         </button>
         <button type="button" className="btn btn-ghost btn-sm" aria-label={`Remove ${titleOf(entry)}`} onClick={onRemove}>
           Remove
         </button>
       </div>
     </li>
-  );
-}
-
-function ImportButton({ onDone }: { onDone: (note: string) => void }) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  async function importFile(file: File) {
-    try {
-      const { added, skipped } = collection.merge(collection.fromFile(await file.text()));
-      onDone(
-        added === 0
-          ? "Everything in that file is already saved."
-          : `Added ${added}${skipped ? `; ${skipped} were already saved` : ""}.`,
-      );
-    } catch (e) {
-      onDone(errorMessage(e));
-    }
-  }
-  return (
-    <>
-      <button type="button" className="btn btn-ghost" onClick={() => fileRef.current?.click()}>
-        Import file
-      </button>
-      <input
-        ref={fileRef}
-        type="file"
-        accept="application/json,.json"
-        className="sr-only"
-        tabIndex={-1}
-        aria-hidden="true"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          e.target.value = "";
-          if (file) void importFile(file);
-        }}
-      />
-    </>
-  );
-}
-
-/** What else Bhumi keeps on this device, each with a way to clear it. */
-function DeviceData({
-  offline,
-  onClearCopies,
-}: {
-  offline: { keys: Set<string>; bytes: number } | null;
-  onClearCopies: () => Promise<void>;
-}) {
-  // undefined until read: the server cannot know, and "none" would be a guess.
-  const [mobile, setMobile] = useState<string | null | undefined>(undefined);
-  useEffect(() => setMobile(storedMobile()), []);
-  const [recentsCleared, setRecentsCleared] = useState(false);
-
-  return (
-    <section className="device" aria-labelledby="device-title">
-      <h2 className="step-title" id="device-title">
-        On this device
-      </h2>
-      <ul className="device-list">
-        <li className="device-item">
-          <h3>Offline copies</h3>
-          <p>
-            {offline === null ? (
-              <span className="skeleton skeleton-text skeleton-wide" role="img" aria-label="Checking" />
-            ) : offline.keys.size === 0 ? (
-              "None yet. Every record you open is kept, so it opens again without signal."
-            ) : (
-              `${offline.keys.size} ${offline.keys.size === 1 ? "record" : "records"}, ${size(offline.bytes)}`
-            )}
-          </p>
-          {!!offline?.keys.size && (
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              aria-label="Clear offline copies"
-              onClick={() => void onClearCopies()}
-            >
-              Clear
-            </button>
-          )}
-        </li>
-        <li className="device-item">
-          <h3>Recent places</h3>
-          <p>{recentsCleared ? "Cleared." : "Districts, talukas and villages you pick are offered first next time."}</p>
-          {!recentsCleared && (
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              aria-label="Clear recent places"
-              onClick={() => {
-                forgetRecents();
-                setRecentsCleared(true);
-              }}
-            >
-              Clear
-            </button>
-          )}
-        </li>
-        <li className="device-item">
-          <h3>Number sent to Mahabhulekh</h3>
-          <p>
-            {mobile === undefined ? (
-              <span className="skeleton skeleton-text" role="img" aria-label="Checking" />
-            ) : mobile ? (
-              <>
-                <span className="mono">{mobile}</span>.
-              </>
-            ) : (
-              "Made when you first open a record."
-            )}{" "}
-            The portal asks for a mobile number but never checks it, so this one is random.
-          </p>
-          {mobile && (
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setMobile(renewMobile())}>
-              New number
-            </button>
-          )}
-        </li>
-      </ul>
-    </section>
   );
 }
 

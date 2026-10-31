@@ -10,6 +10,7 @@
 
 import type { Option, RecordType, RecordDocument, SearchMode } from "@bhumi/core";
 import type { ParcelMap, PlotPick, TalukaMap, VillagePlots } from "./parcel-map";
+import type { CollectionState } from "./collection";
 
 export interface VillageContext {
   searchTypes: Option[];
@@ -59,6 +60,8 @@ export class ApiError extends Error {
   constructor(
     message: string,
     readonly retryable: boolean,
+    /** The HTTP status, when the server answered at all. */
+    readonly status?: number,
   ) {
     super(message);
   }
@@ -81,7 +84,7 @@ async function readJSON<T>(res: Response): Promise<T> {
   if (!data?.error) {
     throw new ApiError("The server took too long to answer. Please try again.", true);
   }
-  throw new ApiError(data.error, data.retryable ?? res.status >= 500);
+  throw new ApiError(data.error, data.retryable ?? res.status >= 500, res.status);
 }
 
 /**
@@ -117,6 +120,19 @@ const postJSON = <T,>(url: string, body: unknown) =>
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+
+const putJSON = <T,>(url: string, body: unknown) =>
+  request<T>(url, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+/** The account's copy of the collection, as stored — validated by the reader. */
+export interface RemoteCollection {
+  collection: unknown;
+  etag: string | null;
+}
 
 const qs = (o: Record<string, string>) => new URLSearchParams(o).toString();
 
@@ -229,6 +245,19 @@ export const api = {
     }
     return pick;
   },
+
+  signIn: (action: "sign-in" | "sign-up", username: string, password: string) =>
+    postJSON<{ username: string }>("/api/account", { action, username, password }),
+
+  signOut: () => postJSON<{ username: null }>("/api/account", { action: "sign-out" }),
+
+  pullCollection: () => getJSON<RemoteCollection>("/api/collection"),
+
+  pushCollection: (collection: CollectionState, etag: string | null) =>
+    putJSON<({ saved: true } | { saved: false; collection: unknown }) & { etag: string | null }>(
+      "/api/collection",
+      { collection, etag },
+    ),
 };
 
 export type { Option, RecordType, RecordDocument, SearchMode, ParcelMap, PlotPick, TalukaMap, VillagePlots };

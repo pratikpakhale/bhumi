@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Maximize2 } from "lucide-react";
 import type { RecordDocument, RecordType } from "@bhumi/core";
 import { documentBlob, type Copy } from "@/lib/copies";
 import { shareLink } from "@/lib/share";
+import { Menu } from "@/components/Menu";
+import { FullScreen } from "@/components/FullScreen";
 
 const LABELS: Record<string, { en: string; mr: string }> = {
   "7/12": { en: "7/12 Extract", mr: "सातबारा" },
@@ -51,15 +54,18 @@ export function RecordView({
   doc,
   subject,
   meta,
-  actions,
+  save,
+  more,
 }: {
   doc: Viewable;
   /** What the record is about — "Survey 167/2 बोरगांव" — for file names and sharing. */
   subject?: string;
   /** Appended to the line under the title — when this copy was fetched. */
   meta?: ReactNode;
-  /** Extra buttons alongside Open / Share / Download. */
-  actions?: ReactNode;
+  /** Keeping the record, first in the row: the one thing most people come back for. */
+  save?: ReactNode;
+  /** Further entries for the More menu, after the file's own. */
+  more?: (close: () => void) => ReactNode;
 }) {
   const { en: title, mr: native } = LABELS[doc.recordType] ?? {
     en: doc.recordType,
@@ -80,6 +86,7 @@ export function RecordView({
     [doc, title],
   );
   const url = useObjectUrl(blob);
+  const [full, setFull] = useState(false);
 
   /**
    * The whole request lives in the URL, so the address bar already *is* the
@@ -115,40 +122,46 @@ export function RecordView({
           <p className="record-meta">
             {native && (
               <>
-                <span lang="mr">{native}</span> ·{" "}
+                <span lang="mr">{native}</span>
+                {meta && " · "}
               </>
             )}
-            {describe(doc, blob)}
-            {meta && <> · {meta}</>}
+            {meta}
           </p>
         </div>
+        {/* What people do with a record, in the bar; the record's own
+            settings (refresh, language) one tap away under More. */}
         <div className="record-actions">
-          {actions}
-          {/* Images only: a blob URL inherits this origin, so opening the
-              portal's HTML as a top-level document would run its scripts here —
-              which is exactly what the sandboxed iframe below prevents. */}
-          {doc.format === "image" && (
-            <button
-              type="button"
-              className="btn btn-ghost"
-              disabled={!url}
-              onClick={() => url && window.open(url, "_blank")}
-            >
-              Open
-            </button>
-          )}
+          {save}
           <button type="button" className="btn btn-ghost" onClick={() => void share()}>
             <span aria-live="polite">{shared ?? "Share"}</span>
           </button>
           <button type="button" className="btn btn-ghost" disabled={!url} onClick={download}>
             Download
           </button>
+          {more && <Menu title={subject ? `${title}, ${subject}` : title}>{more}</Menu>}
         </div>
       </div>
       <div className="record-frame">
         {doc.format === "image" ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          url && <img src={url} alt={title} />
+          url && (
+            <>
+              <button
+                type="button"
+                className="record-zoom"
+                onClick={() => setFull(true)}
+                aria-label={`Open the ${title} full screen`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt={title} />
+                <span className="record-zoom-hint" aria-hidden="true">
+                  <Maximize2 size={14} />
+                  Full screen
+                </span>
+              </button>
+              <FullScreen src={url} alt={title} open={full} onClose={() => setFull(false)} />
+            </>
+          )
         ) : (
           <iframe title={title} sandbox="" srcDoc={wrapHtml(doc.html, title)} />
         )}
@@ -170,13 +183,6 @@ function useObjectUrl(blob: Blob | null): string | null {
     return () => URL.revokeObjectURL(created);
   }, [blob]);
   return url;
-}
-
-/** "JPEG, 214 KB" — enough to tell a real scan from an error page. */
-function describe(doc: Viewable, blob: Blob): string {
-  if (doc.format !== "image") return "HTML table";
-  const format = doc.mimeType.split("/")[1]?.toUpperCase() ?? "Image";
-  return `${format}, ${Math.round(blob.size / 1024)} KB`;
 }
 
 /**

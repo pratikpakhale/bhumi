@@ -11,3 +11,8 @@ dist
 
 # Copied from node_modules at dev/build time, see apps/web/scripts/maplibre-worker.mjs
 apps/web/public/maplibre
+
+# The service worker, built from apps/web/src/app/sw.ts
+apps/web/public/sw.js
+apps/web/public/sw.js.map
+apps/web/public/swe-worker-*.js

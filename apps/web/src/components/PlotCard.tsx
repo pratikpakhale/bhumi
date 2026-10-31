@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { ArrowUpRight, X } from "lucide-react";
 import type { MapPlot, PlotHolding } from "@bhumi/core";
 import { holderLookup, normalizeCode, parcelLookup, type Place } from "@/lib/collection";
 import { recordHref, searchHref } from "@/lib/search-params";
-import { directionsHref, formatArea } from "@/lib/geo";
+import { formatArea, googleMapsHref } from "@/lib/geo";
 import { shareLink } from "@/lib/share";
 import { SaveControl } from "./SaveControl";
 import { PlotMenu } from "./PlotMenu";
@@ -44,15 +45,14 @@ export function PlotCard({
           </p>
         </div>
         <button type="button" className="btn btn-ghost plot-close" onClick={onClose} aria-label={`Close survey ${plot.number}`}>
-          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-            <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-          </svg>
+          <X size={18} aria-hidden="true" />
         </button>
       </div>
 
       <div className="plot-actions">
-        <a className="btn btn-ghost" href={directionsHref(plot.bounds)} target="_blank" rel="noreferrer">
-          Directions
+        <a className="btn btn-ghost" href={googleMapsHref(plot.bounds)} target="_blank" rel="noreferrer">
+          Google Maps
+          <ArrowUpRight size={14} aria-hidden="true" />
         </a>
         <ShareLink title={`Survey ${plot.number}, ${place.villageName}`} />
         <PlotMenu place={place} plot={plot} className="btn btn-ghost" />

@@ -30,16 +30,22 @@
  * whole edge in a single fetch it was going to make anyway. {@link holdersOf}
  * reads that edge backwards, at no network cost.
  *
- * Deliberately local-first, and deliberately not an account: a synced
- * collection would mean a server holding a map of families to the land they
- * own, keyed by the mobile number the portal already demands.
+ * Local-first: the device's copy is the one every screen reads, and it works
+ * with no signal and no account. Signing in only adds a second copy in the
+ * account (see `sync.ts` and docs/adr/0001-accounts-on-r2.md), which is why the
+ * stored shape carries what two copies need to be merged — when each entry last
+ * changed, which entries were removed and when, and when the order was last set
+ * by hand. Nothing here is private: every record is one the portal serves to
+ * anyone who asks.
  */
 
 import { useSyncExternalStore } from "react";
 import { normalizeDigits, parseParcelLabel, surveyBase, type RecordType } from "@bhumi/core";
 import type { Lookup } from "./search-params";
 
-const KEY = "bhumi_collection_v2";
+const KEY = "bhumi_collection_v3";
+/** The v2 store: the same entries as a bare array, with nothing to merge by. */
+const V2_KEY = "bhumi_collection_v2";
 const LEGACY_KEY = "bhumi_saved_v1";
 
 /**
@@ -72,6 +78,8 @@ interface Common {
   nickname?: string;
   tags?: string[];
   addedAt: string;
+  /** Last change to any of the above; absent on entries kept before sync existed. */
+  updatedAt?: string;
 }
 
 /**
@@ -122,6 +130,19 @@ export type Draft =
 export interface Removed {
   entry: Entry;
   index: number;
+}
+
+/**
+ * Everything kept, in the shape two copies can be merged from — see
+ * {@link combine}. The account holds exactly this.
+ */
+export interface CollectionState {
+  /** Live entries, in the user's order. */
+  entries: Entry[];
+  /** When each removed entry was removed, so a merge cannot bring it back. */
+  removed: Record<string, string>;
+  /** When the user last set the order by hand. */
+  orderedAt: string;
 }
 
 /** The wire format of an exported or shared collection. */
@@ -268,14 +289,30 @@ export const placeName = (p: Place): string =>
 
 export const placeOf = (e: Entry): string => placeName(e.place);
 
+/** "Survey 167/2", "CTS 512", "Khata 2379": the subject's address, in words. */
+export function addressOf(subject: Draft | Entry): string {
+  switch (subject.kind) {
+    case "holder":
+      return `Khata ${subject.code}`;
+    case "measurement":
+      return `Measurement ${subject.code}`;
+    case "parcel":
+      return `${subject.register === "PropertyCard" ? "CTS" : "Survey"} ${subject.code}`;
+  }
+}
+
 /** What to call it: the user's name for it, else the holder's name, else the code. */
 export const titleOf = (e: Entry): string => e.nickname?.trim() || e.name || e.code;
 
 // ── Store ────────────────────────────────────────────────────────────────────
 
 const EMPTY: Entry[] = [];
+const EPOCH = new Date(0).toISOString();
+const NOTHING: CollectionState = { entries: EMPTY, removed: {}, orderedAt: EPOCH };
 const listeners = new Set<() => void>();
-let cache: Entry[] | null = null;
+let cache: CollectionState | null = null;
+
+const now = () => new Date().toISOString();
 
 /**
  * Anything that is not a well-formed entry is dropped rather than repaired.
@@ -293,33 +330,93 @@ function valid(x: unknown): x is Entry {
   return e.kind === "parcel" || e.kind === "holder";
 }
 
-function read(): Entry[] {
+/** A stored or received collection, with anything malformed dropped. */
+export function parseState(x: unknown): CollectionState {
+  if (Array.isArray(x)) return { ...NOTHING, entries: x.filter(valid) };
+  const s = x as Partial<CollectionState> | null;
+  if (typeof s !== "object" || s === null || !Array.isArray(s.entries)) return NOTHING;
+  const removed: Record<string, string> = {};
+  for (const [id, at] of Object.entries(s.removed ?? {})) if (typeof at === "string") removed[id] = at;
+  return {
+    entries: s.entries.filter(valid),
+    removed,
+    orderedAt: typeof s.orderedAt === "string" ? s.orderedAt : EPOCH,
+  };
+}
+
+function readState(): CollectionState {
   if (cache) return cache;
-  if (typeof window === "undefined") return EMPTY;
+  if (typeof window === "undefined") return NOTHING;
   try {
-    const raw = localStorage.getItem(KEY);
-    if (raw === null) {
-      cache = adoptLegacy();
-      return cache;
-    }
-    const parsed: unknown = JSON.parse(raw);
-    cache = Array.isArray(parsed) ? parsed.filter(valid) : EMPTY;
+    const raw = localStorage.getItem(KEY) ?? localStorage.getItem(V2_KEY);
+    cache = raw === null ? { ...NOTHING, entries: adoptLegacy() } : parseState(JSON.parse(raw));
   } catch {
-    cache = EMPTY;
+    cache = NOTHING;
   }
   return cache;
 }
 
-function write(next: Entry[]): void {
-  cache = next;
+const read = (): Entry[] => readState().entries;
+
+function write(next: Partial<CollectionState>): void {
+  cache = { ...readState(), ...next };
   try {
-    localStorage.setItem(KEY, JSON.stringify(next));
+    localStorage.setItem(KEY, JSON.stringify(cache));
   } catch {
     // Quota is effectively unreachable for a list of this size; if it is hit,
     // the in-memory copy still serves this session.
   }
   for (const fn of listeners) fn();
 }
+
+/** Tombstones for `ids` lifted: an entry put back is live again. */
+function revive(ids: Iterable<string>): Record<string, string> {
+  const removed = { ...readState().removed };
+  for (const id of ids) delete removed[id];
+  return removed;
+}
+
+/**
+ * Merge two copies of a collection, the same way whichever way round.
+ *
+ * Each entry is its own last-writer-wins register: the newer edit wins, and a
+ * removal wins over every edit made before it — so a land deleted on one phone
+ * stays deleted when the other phone, which still has it, next syncs. The order
+ * is one more register: the copy whose order was set by hand more recently
+ * gives it, and anything that copy has never seen follows in the other's order.
+ */
+export function combine(a: CollectionState, b: CollectionState): CollectionState {
+  const changed = (e: Entry) => e.updatedAt ?? e.addedAt;
+  const later = (x?: string, y?: string) => (x === undefined ? y : y === undefined || x >= y ? x : y);
+  const theirs = new Map(b.entries.map((e) => [e.id, e]));
+  const live = new Map<string, Entry>();
+  for (const e of a.entries) {
+    const other = theirs.get(e.id);
+    live.set(e.id, other && changed(other) > changed(e) ? other : e);
+  }
+  for (const e of b.entries) if (!live.has(e.id)) live.set(e.id, e);
+
+  const removed: Record<string, string> = {};
+  for (const id of new Set([...Object.keys(a.removed), ...Object.keys(b.removed)])) {
+    const gone = later(a.removed[id], b.removed[id])!;
+    const entry = live.get(id);
+    if (entry && changed(entry) >= gone) continue;
+    live.delete(id);
+    removed[id] = gone;
+  }
+
+  const [first, second] = b.orderedAt > a.orderedAt ? [b, a] : [a, b];
+  const ids = new Set([...first.entries, ...second.entries].map((e) => e.id));
+  return {
+    entries: [...ids].flatMap((id) => live.get(id) ?? []),
+    removed: Object.fromEntries(Object.entries(removed).sort(([x], [y]) => x.localeCompare(y))),
+    orderedAt: first.orderedAt,
+  };
+}
+
+/** Whether two copies hold the same thing, so a sync can skip a write. */
+export const sameState = (a: CollectionState, b: CollectionState): boolean =>
+  JSON.stringify(combine(a, a)) === JSON.stringify(combine(b, b));
 
 function subscribe(fn: () => void): () => void {
   listeners.add(fn);
@@ -337,6 +434,9 @@ function subscribe(fn: () => void): () => void {
     window.removeEventListener("storage", onStorage);
   };
 }
+
+/** Listen for any change to the collection, from this tab or another. */
+export const onCollectionChange = subscribe;
 
 /** The collection, re-rendering every consumer on any change. */
 export function useCollection(): Entry[] {
@@ -380,7 +480,8 @@ export const collection = {
       name: draft.name ?? was?.name,
       nickname: draft.nickname ?? was?.nickname,
       tags: draft.tags ?? was?.tags,
-      addedAt: was?.addedAt ?? new Date().toISOString(),
+      addedAt: was?.addedAt ?? now(),
+      updatedAt: now(),
     };
     const held = was?.kind === "holder" ? was : null;
     const entry: Entry =
@@ -392,7 +493,10 @@ export const collection = {
             holdsAt: draft.holdsAt ?? held?.holdsAt,
           }
         : { ...draft, ...kept };
-    write(was ? current.map((e) => (e.id === id ? entry : e)) : [...current, entry]);
+    write({
+      entries: was ? current.map((e) => (e.id === id ? entry : e)) : [...current, entry],
+      removed: revive([id]),
+    });
     return entry;
   },
 
@@ -405,33 +509,44 @@ export const collection = {
     const drop = new Set(typeof ids === "string" ? [ids] : ids);
     const current = read();
     const removed = current.flatMap((entry, index) => (drop.has(entry.id) ? [{ entry, index }] : []));
-    if (removed.length) write(current.filter((e) => !drop.has(e.id)));
+    if (removed.length) {
+      const at = now();
+      write({
+        entries: current.filter((e) => !drop.has(e.id)),
+        removed: { ...readState().removed, ...Object.fromEntries(removed.map(({ entry }) => [entry.id, at])) },
+      });
+    }
     return removed;
   },
 
-  /** Undo a {@link forget}: put each entry back where it was, unless it is back already. */
+  /**
+   * Undo a {@link forget}: put each entry back where it was, unless it is back
+   * already. Putting it back is an edit and a reorder, so both outrank the
+   * removal it undoes wherever else the collection is kept.
+   */
   restore(removed: Removed[]) {
+    const at = now();
     const next = [...read()];
     for (const { entry, index } of [...removed].sort((a, b) => a.index - b.index)) {
       if (next.some((e) => e.id === entry.id)) continue;
-      next.splice(Math.min(index, next.length), 0, entry);
+      next.splice(Math.min(index, next.length), 0, { ...entry, updatedAt: at });
     }
-    write(next);
+    write({ entries: next, removed: revive(removed.map(({ entry }) => entry.id)), orderedAt: at });
   },
 
   update(id: string, patch: Partial<Pick<Entry, "nickname" | "tags">>) {
-    write(
-      read().map((e) =>
-        e.id === id
-          ? {
-              ...e,
-              ...patch,
-              nickname: patch.nickname?.trim() || undefined,
-              tags: patch.tags?.filter(Boolean),
-            }
-          : e,
-      ),
-    );
+    const was = collection.get(id);
+    if (!was) return;
+    const next = {
+      ...was,
+      ...patch,
+      nickname: patch.nickname?.trim() || undefined,
+      tags: patch.tags?.filter(Boolean),
+    };
+    // A field left as it was is not an edit; stamping it would let it beat a
+    // real edit made meanwhile on another device.
+    if (next.nickname === was.nickname && String(next.tags) === String(was.tags)) return;
+    write({ entries: read().map((e) => (e.id === id ? { ...next, updatedAt: now() } : e)) });
   },
 
   /** Replace an entry's place — used to fill in names it was saved without. */
@@ -440,8 +555,8 @@ export const collection = {
     const at = list.findIndex((e) => e.id === id);
     if (at < 0 || !samePlace(list[at]!.place, place)) return;
     const next = [...list];
-    next[at] = { ...list[at]!, place };
-    write(next);
+    next[at] = { ...list[at]!, place, updatedAt: now() };
+    write({ entries: next });
   },
 
   /**
@@ -451,14 +566,19 @@ export const collection = {
    * is a no-op, and saving them later re-reads it from the document on screen.
    */
   setHoldings(id: string, numbers: string[]) {
-    const at = new Date().toISOString();
-    write(
-      read().map((e) =>
+    const holds = numbers.map(normalizeCode);
+    const was = collection.get(id);
+    // Reading the same 8A again teaches nothing; restamping it would sync a
+    // change that is not one.
+    if (was?.kind !== "holder" || String(was.holds) === String(holds)) return;
+    const at = now();
+    write({
+      entries: read().map((e) =>
         e.id === id && e.kind === "holder"
-          ? { ...e, holds: numbers.map(normalizeCode), holdsAt: at }
+          ? { ...e, holds, holdsAt: at, updatedAt: at }
           : e,
       ),
-    );
+    });
   },
 
   /** Reorder; the list order is the user's own ranking. */
@@ -468,20 +588,33 @@ export const collection = {
     if (from < 0 || to < 0 || to >= current.length || from === to) return;
     const [entry] = current.splice(from, 1);
     current.splice(to, 0, entry!);
-    write(current);
+    write({ entries: current, orderedAt: now() });
   },
 
   /**
    * Fold an imported or shared collection into this one.
    *
    * Existing entries win: an import must never overwrite a nickname typed here.
+   * What it adds counts as added now, so it outranks an older removal of the
+   * same land held in the account.
    */
   merge(incoming: Entry[]): { added: number; skipped: number } {
     const current = read();
     const known = new Set(current.map((e) => e.id));
-    const fresh = fold(incoming.filter(valid)).filter((e) => !known.has(e.id));
-    if (fresh.length) write([...current, ...fresh]);
+    const at = now();
+    const fresh = fold(incoming.filter(valid))
+      .filter((e) => !known.has(e.id))
+      .map((e) => ({ ...e, updatedAt: at }));
+    if (fresh.length) write({ entries: [...current, ...fresh], removed: revive(fresh.map((e) => e.id)) });
     return { added: fresh.length, skipped: incoming.length - fresh.length };
+  },
+
+  /** The whole collection as stored, for a sync to merge with the account's. */
+  snapshot: readState,
+
+  /** Take a merged copy as this device's own. A no-op when nothing changed. */
+  adopt(state: CollectionState) {
+    if (!sameState(state, readState())) write(state);
   },
 
   toFile(entries?: Entry[]): CollectionFile {
@@ -527,7 +660,7 @@ function adoptLegacy(): Entry[] {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return EMPTY;
     const entries = fromLegacyList(parsed);
-    if (entries.length) localStorage.setItem(KEY, JSON.stringify(entries));
+    if (entries.length) localStorage.setItem(KEY, JSON.stringify({ ...NOTHING, entries }));
     return entries;
   } catch {
     return EMPTY;

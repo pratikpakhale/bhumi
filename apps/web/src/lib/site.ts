@@ -9,7 +9,7 @@ export const SITE = {
   tagline: "Maharashtra land records, fast",
   title: "Bhumi — 7/12, 8A & Property Card online | Maharashtra land records",
   description:
-    "Look up Maharashtra land records from Mahabhulekh in seconds: 7/12 (सातबारा उतारा), 8A (८अ), Property Card (मिळकत पत्रिका) and Kami-Jasti Patrak. Search by survey number or owner name, see the plot on a satellite map, and keep the records you need — free, on any phone.",
+    "7/12 (सातबारा), 8A and Property Card from Mahabhulekh in seconds, and every survey number on a satellite map with its boundary and holders. Free, no login, on any phone.",
   keywords: [
     "7/12",
     "7/12 extract",
@@ -27,7 +27,12 @@ export const SITE = {
     "भूमि अभिलेख",
     "survey number search",
     "gat number map",
+    "survey number map",
+    "land map maharashtra",
+    "plot boundary",
     "bhunaksha",
+    "bhu naksha maharashtra",
+    "भू नकाशा",
     "kami jasti patrak",
   ],
 } as const;

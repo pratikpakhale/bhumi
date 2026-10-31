@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MapPlot } from "@bhumi/core";
-import { coordinatesOf, mapServiceLinks, prefersAppleMaps } from "./geo";
+import { coordinatesOf, mapServiceLinks, outlinePath } from "./geo";
 import { outlineHref, plotGeoJson, plotKml } from "./plot-export";
 
 const PLACE = {
@@ -87,11 +87,18 @@ describe("outline link", () => {
   });
 });
 
-describe("which map app leads", () => {
-  it("is Apple Maps on iPhone and iPad, Google Maps elsewhere", () => {
-    expect(prefersAppleMaps("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)", 5)).toBe(true);
-    expect(prefersAppleMaps("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", 5)).toBe(true);
-    expect(prefersAppleMaps("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", 0)).toBe(false);
-    expect(prefersAppleMaps("Mozilla/5.0 (Linux; Android 14; Pixel 8)", 5)).toBe(false);
+describe("outline path", () => {
+  it("fits the plot in the box, north up, keeping its shape", () => {
+    const path = outlinePath(PLOT.geometry, PLOT.bounds, 200, 200);
+    const points = [...path.matchAll(/(-?[\d.]+) (-?[\d.]+)/g)].map((m) => [Number(m[1]), Number(m[2])]);
+    const xs = points.map(([x]) => x!);
+    const ys = points.map(([, y]) => y!);
+    expect(Math.min(...ys)).toBe(0);
+    expect(Math.max(...ys)).toBe(200);
+    // A square in degrees is narrower than tall at 18.5°N, and centred.
+    const width = Math.max(...xs) - Math.min(...xs);
+    expect(width).toBeCloseTo(200 * Math.cos((18.525 * Math.PI) / 180), 0);
+    expect(Math.min(...xs) + width / 2).toBeCloseTo(100, 0);
+    expect(points[0]).toEqual([Math.min(...xs), 200]);
   });
 });

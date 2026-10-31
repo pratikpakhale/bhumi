@@ -155,6 +155,27 @@ export async function peekTree(
   return snapshot;
 }
 
+export async function placeNames(
+  rt: RecordType,
+  district: string | null,
+  taluka: string | null,
+  village: string | null,
+): Promise<{ district?: string; taluka?: string; village?: string }> {
+  const name = (options: Option[] | undefined, value: string | null) => options?.find((o) => o.value === value)?.label;
+  const peek = async (type: RecordType) => {
+    const snapshot = await peekTree(type, district, taluka, village);
+    return {
+      district: name(snapshot.districts, district),
+      taluka: name(snapshot.talukas, taluka),
+      village: name(snapshot.villages, village),
+    };
+  };
+  const names = await peek(rt);
+  if (names.village || rt === "7/12") return names;
+  const rural = await peek("7/12");
+  return { district: names.district ?? rural.district, taluka: names.taluka ?? rural.taluka, village: rural.village };
+}
+
 export async function getDistricts(rt: RecordType): Promise<Option[]> {
   await ensureLoaded();
   if (cache.districts[rt]) return cache.districts[rt]!;

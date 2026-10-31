@@ -12,11 +12,11 @@
   color-scheme: light;
 
   /* Paper */
-  --bg: oklch(0.976 0.005 75);
-  --surface: oklch(0.995 0.002 75);
-  --surface-sunken: oklch(0.958 0.006 75);
-  --surface-hover: oklch(0.938 0.008 75);
-  --line: oklch(0.9 0.008 75);
+  --bg: oklch(0.952 0.018 82);
+  --surface: oklch(0.975 0.011 82);
+  --surface-sunken: oklch(0.93 0.02 82);
+  --surface-hover: oklch(0.912 0.022 82);
+  --line: oklch(0.875 0.02 82);
   --line-control: oklch(0.605 0.014 75);
 
   /* Ink */
@@ -27,11 +27,11 @@
   --accent: oklch(0.47 0.16 256);
   --accent-hover: oklch(0.41 0.16 256);
   --accent-fg: oklch(0.45 0.16 256);
-  --accent-soft: oklch(0.95 0.03 256);
+  --accent-soft: oklch(0.925 0.035 256);
   --on-accent: oklch(0.99 0.005 256);
 
   --danger: oklch(0.475 0.16 27);
-  --danger-soft: oklch(0.958 0.022 27);
+  --danger-soft: oklch(0.935 0.03 27);
   --danger-line: oklch(0.8 0.06 27);
 
   /* Deliberately not themed: see .record-frame. */
@@ -75,34 +75,32 @@
     sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
+:root[data-theme="dark"] {
+  color-scheme: dark;
 
-    --bg: oklch(0.185 0.008 75);
-    --surface: oklch(0.228 0.009 75);
-    --surface-sunken: oklch(0.205 0.008 75);
-    --surface-hover: oklch(0.275 0.01 75);
-    --line: oklch(0.31 0.01 75);
-    --line-control: oklch(0.53 0.012 75);
+  --bg: oklch(0.185 0.008 75);
+  --surface: oklch(0.228 0.009 75);
+  --surface-sunken: oklch(0.205 0.008 75);
+  --surface-hover: oklch(0.275 0.01 75);
+  --line: oklch(0.31 0.01 75);
+  --line-control: oklch(0.53 0.012 75);
 
-    --text: oklch(0.945 0.006 75);
-    --text-2: oklch(0.735 0.008 75);
-    --text-3: oklch(0.615 0.008 75);
+  --text: oklch(0.945 0.006 75);
+  --text-2: oklch(0.735 0.008 75);
+  --text-3: oklch(0.615 0.008 75);
 
-    --accent: oklch(0.5 0.16 256);
-    --accent-hover: oklch(0.54 0.16 256);
-    --accent-fg: oklch(0.76 0.12 256);
-    --accent-soft: oklch(0.3 0.06 256);
-    --on-accent: oklch(0.99 0.005 256);
+  --accent: oklch(0.5 0.16 256);
+  --accent-hover: oklch(0.54 0.16 256);
+  --accent-fg: oklch(0.76 0.12 256);
+  --accent-soft: oklch(0.3 0.06 256);
+  --on-accent: oklch(0.99 0.005 256);
 
-    --danger: oklch(0.7 0.15 27);
-    --danger-soft: oklch(0.285 0.05 27);
-    --danger-line: oklch(0.42 0.09 27);
+  --danger: oklch(0.7 0.15 27);
+  --danger-soft: oklch(0.285 0.05 27);
+  --danger-line: oklch(0.42 0.09 27);
 
-    --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.3);
-    --shadow-pop: 0 1px 2px oklch(0 0 0 / 0.3), 0 12px 28px -8px oklch(0 0 0 / 0.55);
-  }
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.3);
+  --shadow-pop: 0 1px 2px oklch(0 0 0 / 0.3), 0 12px 28px -8px oklch(0 0 0 / 0.55);
 }
 
 *,
@@ -220,8 +218,70 @@ code {
   text-underline-offset: 6px;
 }
 
-/* On the narrowest phones the mark alone names the site; the link keeps its label. */
-@media (max-width: 379px) {
+.masthead-tools {
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+
+/* Icon-only controls at the end of the bar: the account and the theme. */
+.icon-link,
+.theme-toggle {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+}
+.icon-link:hover,
+.theme-toggle:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+/* Where you are, by fill and ink: an icon has no underline to carry it. */
+.icon-link[aria-current="page"] {
+  color: var(--text);
+  background: var(--surface-sunken);
+}
+@media (min-width: 640px) and (pointer: fine) {
+  .icon-link,
+  .theme-toggle {
+    width: 38px;
+    height: 38px;
+  }
+}
+
+.theme-icon,
+.theme-rays,
+.theme-disc,
+.theme-bite {
+  transform-origin: 12px 12px;
+  transition: transform 480ms var(--ease), opacity 240ms var(--ease);
+}
+:root[data-theme="dark"] .theme-icon {
+  transform: rotate(360deg);
+}
+:root[data-theme="dark"] .theme-rays {
+  opacity: 0;
+  transform: scale(0.5) rotate(-90deg);
+}
+:root[data-theme="dark"] .theme-disc {
+  transform: scale(1.5);
+}
+:root[data-theme="dark"] .theme-bite {
+  transform: translate(-10px, 10px);
+}
+
+/* On phones the mark alone names the site, so the three places and the two
+   icons fit one line; every link keeps its label. */
+@media (max-width: 429px) {
   .brand .wordmark {
     display: none;
   }
@@ -271,6 +331,22 @@ code {
   line-height: 1.6;
   color: var(--text-3);
 }
+/* A link inside a sentence: the accent, as DESIGN.md allows links, and an
+   underline so it never relies on colour alone. */
+.lede a,
+.help a,
+.site-footer a {
+  color: var(--accent-fg);
+  font-weight: 560;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.lede a:hover,
+.help a:hover,
+.site-footer a:hover {
+  text-decoration-thickness: 2px;
+}
+
 .site-footer p {
   margin: 0 0 var(--s2);
   max-width: 62ch;
@@ -281,6 +357,11 @@ code {
 .step {
   padding: var(--s7) 0;
   border-bottom: 1px solid var(--line);
+}
+
+/* The footer's own rule closes the page; don't double it. */
+.step:last-child {
+  border-bottom: 0;
 }
 
 .step-head {
@@ -652,8 +733,7 @@ code {
   font-size: var(--t-sm);
 }
 
-.combo-group,
-.menu-group {
+.combo-group {
   margin: 0;
   padding: var(--s2) var(--s2) var(--s1);
   font-size: var(--t-micro);
@@ -732,11 +812,6 @@ code {
   rotate: 180deg;
 }
 
-.menu-more [role="group"] .menu-group {
-  border-top: 1px solid var(--line);
-  margin-top: var(--s1);
-}
-
 .menu-head {
   display: flex;
   align-items: center;
@@ -745,11 +820,6 @@ code {
   padding: var(--s2) 0 var(--s1) var(--s2);
   font-size: var(--t-md);
   font-weight: 560;
-}
-
-.menu [role="group"] + [role="group"] .menu-group {
-  margin-top: var(--s1);
-  border-top: 1px solid var(--line);
 }
 
 .menu-opt {
@@ -771,8 +841,20 @@ code {
   text-decoration: none;
   cursor: pointer;
 }
-.menu-opt:hover {
+.menu-opt:hover:not(:disabled) {
   background: var(--surface-hover);
+}
+/* A menu row that holds a control of its own rather than being one. */
+.menu-field {
+  cursor: default;
+}
+.menu-field .sel {
+  flex: none;
+  max-width: 55%;
+}
+.menu-opt:disabled {
+  color: var(--text-3);
+  cursor: not-allowed;
 }
 .menu-opt:focus-visible {
   outline-offset: -2px;
@@ -838,6 +920,12 @@ code {
 
 /* ── Buttons ───────────────────────────────────────────────────────────── */
 
+/* Every UI icon is a lucide-react glyph; one stroke so they sit with Inter at 560. */
+.lucide {
+  flex: none;
+  stroke-width: 2.25;
+}
+
 .btn {
   appearance: none;
   display: inline-flex;
@@ -900,6 +988,17 @@ code {
 }
 .btn-ghost:hover:not(:disabled) {
   background: var(--surface-hover);
+}
+/* A toggle that is on (Saved, Show password): the selected tint and an
+   accent edge, with the label and icon changing too, so colour is never the
+   only sign. */
+.btn-ghost[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-fg);
+  border-color: color-mix(in oklch, var(--accent-fg) 55%, transparent);
+}
+.btn-ghost[aria-pressed="true"]:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--accent-soft) 70%, var(--surface-hover));
 }
 
 .btn-sm {
@@ -1163,6 +1262,37 @@ code {
   flex-wrap: wrap;
   gap: var(--s2);
 }
+/* On a phone the four actions share one line, full width, rather than leave
+   More alone on a second. */
+@media (max-width: 559px) {
+  .record-actions {
+    flex-wrap: nowrap;
+    width: 100%;
+  }
+  .record-actions > .btn {
+    flex: 1 1 auto;
+    padding-inline: var(--s2);
+  }
+}
+/* 360px Android phones and narrower: the small button size, so "Saved" with
+   its tick and "Download" still fit beside the other two. */
+@media (max-width: 399px) {
+  .record-actions {
+    gap: 6px;
+  }
+  .record-actions > .btn {
+    gap: 6px;
+    padding-inline: 6px;
+    font-size: var(--t-sm);
+  }
+}
+/* Below that, two even rows of two, never one button left alone. */
+@media (max-width: 359px) {
+  .record-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 
 /* A select in the row of buttons: their height and type size, not a field's.
    `.sel` keeps 16px below 640px, or iOS zooms in on tap. */
@@ -1191,6 +1321,76 @@ code {
   width: 100%;
   height: auto;
 }
+/* The scan is itself the way to full screen: the whole of it is the target,
+   and a chip in the corner says so for anyone who would not think to tap. */
+.record-zoom {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+.record-zoom:focus-visible {
+  outline-offset: -4px;
+}
+.record-zoom-hint {
+  position: absolute;
+  top: var(--s3);
+  right: var(--s3);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px var(--s2);
+  border-radius: 999px;
+  background: oklch(0.235 0.012 75 / 0.78);
+  color: oklch(0.99 0.003 75);
+  font-size: var(--t-xs);
+  font-weight: 560;
+  pointer-events: none;
+}
+
+/* Full screen: the scan on paper, edge to edge, over everything. It opens
+   fitted to the width; a tap shows the scan at its own size, to pan. */
+.fullscreen {
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--paper);
+  color-scheme: light;
+}
+.fullscreen::backdrop {
+  background: var(--paper);
+}
+.fullscreen img {
+  display: block;
+  width: 100%;
+  height: auto;
+  cursor: zoom-in;
+}
+.fullscreen[data-actual] img {
+  width: auto;
+  max-width: none;
+  cursor: zoom-out;
+}
+.fullscreen-close {
+  position: fixed;
+  z-index: 1;
+  top: calc(var(--s3) + env(safe-area-inset-top));
+  right: calc(var(--s3) + env(safe-area-inset-right));
+  width: 44px;
+  padding: 0;
+  border-radius: 999px;
+  box-shadow: var(--shadow-pop);
+}
+
 .record-frame iframe {
   display: block;
   width: 100%;
@@ -1208,21 +1408,6 @@ code {
 }
 
 /* ── Saved collection ──────────────────────────────────────────────────── */
-
-/* For a returning user this list is the whole path to a record, so it sits
-   above the cascade rather than beside it. */
-.saved {
-  padding: var(--s6) 0 var(--s2);
-  border-bottom: 1px solid var(--line);
-}
-
-.saved-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--s3);
-  margin-bottom: var(--s3);
-}
 
 .saved-list,
 .results-list,
@@ -1281,17 +1466,32 @@ code {
   white-space: nowrap;
 }
 
-.saved .step-actions {
-  margin-top: var(--s5);
+/* "4 records in 2 villages", with Edit and More at the far end of the line. */
+.saved-summary {
+  margin: 0;
+  font-size: var(--t-sm);
+  font-weight: 500;
+  color: var(--text-2);
 }
-
-.saved-bar {
+.saved-tools {
   display: flex;
   gap: var(--s2);
-  margin-bottom: var(--s3);
+  margin-left: auto;
 }
-.saved-bar .inp {
-  flex: 1;
+
+/* What is missing, what to do, and the other way in: one stack, one gap, so
+   no rule on a paragraph inside it can pull a line against the buttons. */
+.saved-empty {
+  display: grid;
+  justify-items: start;
+  gap: var(--s4);
+}
+.saved-empty > p {
+  margin: 0;
+}
+.saved-empty > p:not(.help) {
+  max-width: 46ch;
+  color: var(--text-2);
 }
 
 .saved-select {
@@ -1331,13 +1531,20 @@ input[type="checkbox"] {
 }
 
 .saved-group + .saved-group {
-  margin-top: var(--s4);
+  margin-top: var(--s6);
 }
 
+/* The village, then where it is: the name a person looks for comes first. */
 .saved-group-title {
   margin: 0 0 var(--s1);
+  font-size: var(--t-sm);
+  font-weight: 620;
+  color: var(--text-2);
+}
+.saved-group-title span {
+  margin-left: var(--s2);
   font-size: var(--t-xs);
-  font-weight: 560;
+  font-weight: 500;
   color: var(--text-3);
 }
 
@@ -1380,29 +1587,18 @@ input[type="checkbox"] {
   gap: var(--s2);
   margin-left: auto;
 }
-/* The arrow buttons are a glyph wide; a finger needs the full 44px. */
+/* The arrow buttons are an icon wide; a finger needs the full 44px. */
 @media (pointer: coarse) {
   .saved-edit-actions .btn {
     min-width: 44px;
   }
 }
 
-.empty {
-  padding: var(--s7) 0;
-}
-.empty p {
-  margin: 0 0 var(--s4);
-  max-width: 46ch;
-  color: var(--text-2);
-}
-
-.device {
-  padding-top: var(--s7);
-}
-
+/* A titled list of things kept, each with what it is, what it holds, and its
+   own buttons at the end of the row. */
 .device-list {
   list-style: none;
-  margin: var(--s3) 0 0;
+  margin: 0;
   padding: 0;
 }
 
@@ -1425,9 +1621,88 @@ input[type="checkbox"] {
   font-size: var(--t-sm);
   color: var(--text-2);
 }
-.device-item .btn {
+/* A row still being read: its title and line as bars, in the text column. */
+.device-item > .skeleton {
+  grid-column: 1;
+}
+
+.device-item-actions {
   grid-column: 2;
   grid-row: 1 / span 2;
+  display: flex;
+  gap: var(--s2);
+}
+/* Beside the words there is no room on a phone for two buttons and a
+   sentence; the buttons go under it instead, where the thumb is anyway. */
+@media (max-width: 479px) {
+  .device-item-actions {
+    grid-column: 1;
+    grid-row: auto;
+    margin-top: var(--s2);
+  }
+}
+
+/* A way to another screen, with what is there, as a whole tappable row. */
+.link-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  min-height: 56px;
+  padding: var(--s2) var(--s3);
+  margin-inline: calc(var(--s3) * -1);
+  border-radius: var(--r-md);
+  color: var(--text);
+  text-decoration: none;
+  transition: background-color var(--dur-fast) var(--ease);
+}
+.link-row:hover {
+  background: var(--surface-hover);
+}
+.link-row > svg {
+  flex: none;
+  color: var(--text-3);
+}
+.link-row-text {
+  display: grid;
+  gap: 2px;
+  font-size: var(--t-base);
+  font-weight: 560;
+}
+.link-row-meta {
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--text-2);
+}
+
+/* ── Account form ──────────────────────────────────────────────────────── */
+
+/* One column whatever the width: a username and a password are read and
+   filled top to bottom, and side by side they only look like a search bar. */
+.auth {
+  display: grid;
+  gap: var(--s4);
+  max-width: 26rem;
+  margin-top: var(--s3);
+}
+.auth .help {
+  margin-top: 6px;
+}
+.auth .alert {
+  margin: 0;
+}
+
+/* A control with its own button inside the same row: the password and Show. */
+.inp-group {
+  display: flex;
+  gap: var(--s2);
+}
+.inp-group .inp {
+  flex: 1;
+}
+.inp-group .btn {
+  flex: none;
+  min-width: 92px;
 }
 
 .mono {
@@ -2010,13 +2285,15 @@ input[type="checkbox"] {
   font-variant-numeric: tabular-nums;
 }
 
-.plot-close {
+.plot-close,
+.menu-close {
   flex: none;
   width: 44px;
   padding: 0;
 }
 @media (min-width: 640px) and (pointer: fine) {
-  .plot-close {
+  .plot-close,
+  .menu-close {
     width: 38px;
   }
 }

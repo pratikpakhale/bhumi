@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/client";
 import { useResource } from "@/lib/resource";
-import { directionsHref, formatArea } from "@/lib/geo";
+import { formatArea, googleMapsHref } from "@/lib/geo";
 import { mapHref } from "@/lib/map-params";
 import type { Place } from "@/lib/collection";
 
@@ -23,9 +23,8 @@ const MapCanvas = dynamic(() => import("./MapCanvas"), {
  * Where the parcel on this 7/12 lies, from Bhunaksha.
  *
  * The record says what is held and by whom; this says which field it is. The
- * numbers come first and work without the map — the area, and directions to the
- * plot — while the map itself (and its imagery, heavy on mobile data) only
- * loads once the reader scrolls towards it.
+ * numbers come first and work without the map, while the map itself (and its
+ * imagery, heavy on mobile data) only loads once the reader scrolls towards it.
  */
 export function ParcelMap({ place, survey }: { place: Place; survey: string }) {
   const res = useResource(
@@ -52,11 +51,11 @@ export function ParcelMap({ place, survey }: { place: Place; survey: string }) {
         {data?.village && (
           <div className="relation-actions">
             <Link className="btn btn-ghost btn-sm" href={mapHref({ ...place, plot: plot?.number ?? null })}>
-              Open in map
+              Nearby fields
             </Link>
             {plot && (
-              <a className="btn btn-ghost btn-sm" href={directionsHref(plot.bounds)} target="_blank" rel="noreferrer">
-                Directions
+              <a className="btn btn-ghost btn-sm" href={googleMapsHref(plot.bounds)} target="_blank" rel="noreferrer">
+                Google Maps
               </a>
             )}
             {plot && <PlotMenu place={place} plot={plot} className="btn btn-ghost btn-sm" />}
@@ -111,10 +110,7 @@ export function ParcelMap({ place, survey }: { place: Place; survey: string }) {
               <div className="map-canvas skeleton" />
             )}
           </div>
-          <p className="help">
-            Area is measured from the drawing and can differ from the 7/12. Bhunaksha maps are for
-            viewing only, not for legal use.
-          </p>
+          <p className="help">Area is measured from the drawing and can differ from the 7/12.</p>
         </>
       )}
     </section>

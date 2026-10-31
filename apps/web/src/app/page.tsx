@@ -15,6 +15,13 @@ const STRUCTURED = [
     operatingSystem: "Any",
     inLanguage: ["en-IN", "mr-IN"],
     areaServed: { "@type": "State", name: "Maharashtra" },
+    featureList: [
+      "7/12, 8A, Property Card and Kami-Jasti Patrak from Mahabhulekh",
+      "Search by survey number or owner name",
+      "Every survey number on a satellite map, with its holders",
+      "Plot boundaries as KML and GeoJSON for Google Earth and GIS tools",
+      "Saved records that open offline",
+    ],
     offers: { "@type": "Offer", price: "0", priceCurrency: "INR" },
   },
   {

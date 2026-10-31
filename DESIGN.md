@@ -33,28 +33,30 @@ card. Changing a path there changes all of them.
 
 ## Color
 
-All colours are OKLCH. Every neutral is tinted toward hue 75 (warm) so nothing
-reads as a cold digital grey. No `#000`, no `#fff`.
+All colours are OKLCH. Every neutral is tinted warm (hue 75, the light grounds
+82) so nothing reads as a cold digital grey. No `#000`, no `#fff`. The light
+grounds are a pastel parchment rather than near-white: easier on the eyes
+outdoors and on bright screens, and of a piece with the paper the records are.
 
 ### Light — paper
 
 | Token | Value | Role |
 | --- | --- | --- |
-| `--bg` | `oklch(0.976 0.005 75)` | Page. Warm paper. |
-| `--surface` | `oklch(0.995 0.002 75)` | Raised: inputs, popovers, the record frame. |
-| `--surface-sunken` | `oklch(0.958 0.006 75)` | Recessed: segmented track, code, skeletons. |
-| `--surface-hover` | `oklch(0.938 0.008 75)` | Hover fill on neutral controls. |
-| `--line` | `oklch(0.900 0.008 75)` | Decorative hairlines and section rules. |
-| `--line-control` | `oklch(0.605 0.014 75)` | Control boundaries. 3.8:1 on `--surface`. |
-| `--text` | `oklch(0.235 0.012 75)` | Primary. 15.6:1. |
-| `--text-2` | `oklch(0.400 0.012 75)` | Secondary, labels. 8.6:1. |
-| `--text-3` | `oklch(0.490 0.010 75)` | Tertiary, hints, placeholders. 5.9:1. |
+| `--bg` | `oklch(0.952 0.018 82)` | Page. Pastel parchment, never white. |
+| `--surface` | `oklch(0.975 0.011 82)` | Raised: inputs, popovers, the record frame. |
+| `--surface-sunken` | `oklch(0.930 0.020 82)` | Recessed: segmented track, code, skeletons. |
+| `--surface-hover` | `oklch(0.912 0.022 82)` | Hover fill on neutral controls. |
+| `--line` | `oklch(0.875 0.020 82)` | Decorative hairlines and section rules. |
+| `--line-control` | `oklch(0.605 0.014 75)` | Control boundaries. 3.6:1 on `--surface`, 3.4:1 on `--bg`. |
+| `--text` | `oklch(0.235 0.012 75)` | Primary. 14.5:1. |
+| `--text-2` | `oklch(0.400 0.012 75)` | Secondary, labels. 8.0:1. |
+| `--text-3` | `oklch(0.490 0.010 75)` | Tertiary, hints, placeholders. 5.5:1; 4.8:1 on `--surface-hover`. |
 | `--accent` | `oklch(0.47 0.16 256)` | Solid fill (`#0158b2`). `--on-accent` on it: 6.8:1. |
 | `--accent-hover` | `oklch(0.41 0.16 256)` | Primary button hover. 8.7:1. |
-| `--accent-fg` | `oklch(0.45 0.16 256)` | Accent as text/border/ring. 7.0:1 on `--bg`. |
-| `--accent-soft` | `oklch(0.95 0.03 256)` | Selected-row tint. `--accent-fg` on it: 6.5:1. |
-| `--danger` | `oklch(0.475 0.160 27)` | Errors. 6.8:1 on `--bg`. |
-| `--danger-soft` | `oklch(0.958 0.022 27)` | Error panel fill. |
+| `--accent-fg` | `oklch(0.45 0.16 256)` | Accent as text/border/ring. 6.6:1 on `--bg`. |
+| `--accent-soft` | `oklch(0.925 0.035 256)` | Selected-row tint. `--accent-fg` on it: 6.1:1. |
+| `--danger` | `oklch(0.475 0.160 27)` | Errors. 6.3:1 on `--bg`. |
+| `--danger-soft` | `oklch(0.935 0.030 27)` | Error panel fill. `--danger` on it: 5.9:1. |
 | `--paper` | `oklch(0.99 0.003 75)` | The scanned document. Never themed. |
 
 ### Dark — night desk

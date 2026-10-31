@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { useQueryStates } from "nuqs";
 import { parseEightA, type Option, type RecordDocument } from "@bhumi/core";
 import { api, canRetry, errorMessage, type Locator } from "@/lib/client";
@@ -9,13 +10,13 @@ import { lookupFrom, lookupKey, searchHref, searchParams } from "@/lib/search-pa
 import { deviceMobile, recordInput, resolveLanguage, resolveSearchType } from "@/lib/record-request";
 import { useResource, dataOf } from "@/lib/resource";
 import {
+  addressOf,
   collection,
   entryId,
   placeName,
   subjectFromLookup,
   titleOf,
   useEntry,
-  type Draft,
   type Place,
 } from "@/lib/collection";
 import { copyOf, keepCopy } from "@/lib/copies";
@@ -226,7 +227,7 @@ export function DocumentScreen({ initial }: { initial: TreeSnapshot }) {
   const retry = failure?.retryable ? retryFailed : undefined;
 
   const named = place && place.villageName !== place.village;
-  const heading = subject ? describe(subject) : null;
+  const heading = subject ? addressOf(subject) : null;
   const title = entry && titleOf(entry) !== entry.code ? titleOf(entry) : heading;
 
   return (
@@ -238,7 +239,7 @@ export function DocumentScreen({ initial }: { initial: TreeSnapshot }) {
         {lookup ? (
           <>
             <Link className="back" href={searchHref(lookup, sp.lang)}>
-              <span aria-hidden="true">←</span> Back to search
+              <ArrowLeft size={16} aria-hidden="true" /> Back to search
             </Link>
             <div className="doc-head">
               <h1 className="doc-title" lang={title !== heading ? "mr" : undefined}>
@@ -297,45 +298,61 @@ export function DocumentScreen({ initial }: { initial: TreeSnapshot }) {
             doc={view}
             subject={heading && place ? `${heading} ${place.villageName}` : undefined}
             meta={
-              live
-                ? "Fetched just now"
-                : copy
-                  ? `Your copy from ${when(copy.savedAt)}${isFetching ? " · checking for a newer one…" : ""}`
-                  : null
+              // The wait is named where the reader is looking: the line that
+              // says how old the copy on screen is.
+              <span aria-live="polite">
+                {live
+                  ? isFetching
+                    ? "Refreshing…"
+                    : "Fetched just now"
+                  : copy && `Your copy from ${when(copy.savedAt)}${isFetching ? " · checking for a newer one…" : ""}`}
+              </span>
             }
-            actions={
+            save={subject && <SaveControl subject={subject} />}
+            more={(close) => (
               <>
-                {subject && <SaveControl subject={subject} />}
                 <button
                   type="button"
-                  className="btn btn-ghost"
-                  onClick={() => void fetchNow()}
+                  className="menu-opt"
                   disabled={isFetching || !canFetch}
-                  aria-busy={isFetching}
+                  onClick={() => {
+                    close();
+                    void fetchNow();
+                  }}
                 >
-                  {isFetching && <span className="spinner" aria-hidden="true" />}
-                  {isFetching ? "Refreshing" : "Refresh"}
+                  <span className="menu-opt-text">
+                    Refresh
+                    <span className="menu-opt-meta">Fetch it again from Mahabhulekh; usually 5–20 seconds</span>
+                  </span>
                 </button>
+                {/* The portal offers a dozen languages; the phone's own picker
+                    handles a list that long better than a menu would. */}
                 {ctx && ctx.languages.length > 1 && (
-                  <select
-                    className="sel sel-inline"
-                    aria-label="Language of the record"
-                    value={language}
-                    disabled={isFetching}
-                    onChange={(e) => {
-                      void setSp({ lang: e.target.value });
-                      void fetchNow(e.target.value);
-                    }}
-                  >
-                    {ctx.languages.map((l) => (
-                      <option key={l.value} value={l.value}>
-                        {l.label}
-                      </option>
-                    ))}
-                  </select>
+                  <label className="menu-opt menu-field">
+                    <span className="menu-opt-text">
+                      Language
+                      <span className="menu-opt-meta">Of the record, as Mahabhulekh prints it</span>
+                    </span>
+                    <select
+                      className="sel sel-inline"
+                      value={language}
+                      disabled={isFetching}
+                      onChange={(e) => {
+                        close();
+                        void setSp({ lang: e.target.value });
+                        void fetchNow(e.target.value);
+                      }}
+                    >
+                      {ctx.languages.map((l) => (
+                        <option key={l.value} value={l.value}>
+                          {l.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 )}
               </>
-            }
+            )}
           />
         )}
 
@@ -354,18 +371,6 @@ export function DocumentScreen({ initial }: { initial: TreeSnapshot }) {
       <SiteFooter />
     </div>
   );
-}
-
-/** "Survey 167/2", "Khata 2379" — what the record is of, in words. */
-function describe(subject: Draft): string {
-  switch (subject.kind) {
-    case "holder":
-      return `Khata ${subject.code}`;
-    case "measurement":
-      return `Measurement ${subject.code}`;
-    case "parcel":
-      return `${subject.register === "PropertyCard" ? "CTS" : "Survey"} ${subject.code}`;
-  }
 }
 
 const labelOf = (options: Option[] | undefined, value: string) =>

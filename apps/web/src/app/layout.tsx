@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Noto_Sans_Devanagari } from "next/font/google";
+import { ThemeProvider } from "next-themes";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { Background } from "@/components/Background";
 import { BRAND } from "@/lib/brand";
 import { SITE } from "@/lib/site";
 import "./globals.css";
@@ -68,9 +70,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${devanagari.variable}`}>
+    <html lang="en" className={`${inter.variable} ${devanagari.variable}`} suppressHydrationWarning>
       <body>
-        <NuqsAdapter>{children}</NuqsAdapter>
+        <ThemeProvider attribute="data-theme" storageKey="bhumi_theme">
+          <NuqsAdapter>{children}</NuqsAdapter>
+          <Background />
+        </ThemeProvider>
       </body>
     </html>
   );
