@@ -11,6 +11,7 @@ import type { Place } from "@/lib/collection";
 
 import type { Camera } from "./MapCanvas";
 import { Failure, Loading } from "./Status";
+import { PlotMenu } from "./PlotMenu";
 
 // MapLibre is most of a megabyte; only a page that is about to show a map pays for it.
 const MapCanvas = dynamic(() => import("./MapCanvas"), {
@@ -58,6 +59,7 @@ export function ParcelMap({ place, survey }: { place: Place; survey: string }) {
                 Directions
               </a>
             )}
+            {plot && <PlotMenu place={place} plot={plot} className="btn btn-ghost btn-sm" />}
           </div>
         )}
       </div>

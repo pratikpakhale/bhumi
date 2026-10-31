@@ -8,6 +8,7 @@ import { recordHref, searchHref } from "@/lib/search-params";
 import { directionsHref, formatArea } from "@/lib/geo";
 import { shareLink } from "@/lib/share";
 import { SaveControl } from "./SaveControl";
+import { PlotMenu } from "./PlotMenu";
 
 /**
  * A plot picked on the map, and what the land records say about it.
@@ -54,6 +55,7 @@ export function PlotCard({
           Directions
         </a>
         <ShareLink title={`Survey ${plot.number}, ${place.villageName}`} />
+        <PlotMenu place={place} plot={plot} className="btn btn-ghost" />
       </div>
 
       {surveys.length > 0 ? (

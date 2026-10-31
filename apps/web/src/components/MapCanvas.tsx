@@ -15,7 +15,7 @@ import {
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { Bounds, MapPlot } from "@bhumi/core";
-import { DETAIL_ZOOM } from "@/lib/geo";
+import { DETAIL_ZOOM, INK } from "@/lib/geo";
 
 /**
  * Satellite imagery under Bhunaksha's village drawings.
@@ -34,8 +34,6 @@ import { DETAIL_ZOOM } from "@/lib/geo";
 // Copied into `public/` by scripts/maplibre-worker.mjs, which explains why.
 setWorkerUrl(`/maplibre/${getVersion()}/maplibre-gl-worker.mjs`);
 
-/** `--accent-fg` from the dark theme: the ink colour lifted to read on imagery. */
-const INK = "#84a9f7";
 /** `--paper`. */
 const PAPER = "#fdfbfa";
 

@@ -1,7 +1,7 @@
 "use client";
 
 /** Put text on the clipboard, falling back to the old selection trick where the API is missing. */
-async function copyText(text: string): Promise<boolean> {
+export async function copyText(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);
     return true;
@@ -39,4 +39,13 @@ export async function shareLink(title: string, url: string): Promise<"shared" | 
     }
   }
   return (await copyText(url)) ? "copied" : "failed";
+}
+
+export function saveFile({ name, type, text }: { name: string; type: string; text: string }): void {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url));
 }

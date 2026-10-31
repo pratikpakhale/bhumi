@@ -3,6 +3,9 @@ import type { Bounds } from "@bhumi/core";
 /** Below this zoom the village drawings are not shown, and plots cannot be picked. */
 export const DETAIL_ZOOM = 13;
 
+/** `--accent-fg` from the dark theme: the ink colour lifted to read on imagery. */
+export const INK = "#84a9f7";
+
 /** `[lng, lat]` at the middle of a box. */
 export const centreOf = ([w, s, e, n]: Bounds): [number, number] => [(w + e) / 2, (s + n) / 2];
 
@@ -35,8 +38,32 @@ export function formatArea(sqm: number): string {
   return `${ha} · ${spoken}`;
 }
 
+const pinOf = (bounds: Bounds) => {
+  const [lng, lat] = centreOf(bounds);
+  return { lat: lat.toFixed(6), lng: lng.toFixed(6) };
+};
+
+export function coordinatesOf(bounds: Bounds): string {
+  const { lat, lng } = pinOf(bounds);
+  return `${lat}, ${lng}`;
+}
+
 /** Google Maps directions to the middle of a box. */
 export function directionsHref(bounds: Bounds): string {
-  const [lng, lat] = centreOf(bounds);
-  return `https://www.google.com/maps/dir/?api=1&destination=${lat.toFixed(6)},${lng.toFixed(6)}`;
+  const { lat, lng } = pinOf(bounds);
+  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
 }
+
+export function mapServiceLinks(bounds: Bounds, label: string): { name: string; href: string }[] {
+  const { lat, lng } = pinOf(bounds);
+  return [
+    { name: "Google Maps", href: `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` },
+    { name: "Apple Maps", href: `https://maps.apple.com/?${new URLSearchParams({ ll: `${lat},${lng}`, q: label })}` },
+    { name: "Google Earth", href: `https://earth.google.com/web/search/${lat},${lng}` },
+    { name: "OpenStreetMap", href: `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=18/${lat}/${lng}` },
+  ];
+}
+
+/** iPhone and iPad, including iPadOS, which reports itself as a Mac with a touch screen. */
+export const prefersAppleMaps = (userAgent: string, touchPoints: number): boolean =>
+  /iPhone|iPad/.test(userAgent) || (/Macintosh/.test(userAgent) && touchPoints > 1);
